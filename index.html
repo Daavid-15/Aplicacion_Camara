@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cámara App con Recuadro Verde</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Aplicación de Cámara con Recuadro Verde</h1>
+
+  <!-- Contenedor donde se agrupa la vista de la cámara y el recuadro -->
+  <div id="camera-container">
+    <video id="video" autoplay></video>
+    <!-- Recuadro verde -->
+    <div id="overlay"></div>
+  </div>
+  
+  <button id="capture">Tomar Foto</button>
+  
+  <h2>Input</h2>
+  <div id="input-section">
+      <canvas id="canvas"></canvas>
+      <img id="photo" src="" alt="Foto tomada">
+  </div>
+  
+  <script src="script.js"></script>
+</body>
+</html>

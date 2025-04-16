@@ -1,0 +1,37 @@
+body { 
+    font-family: Arial, sans-serif; 
+    text-align: center; 
+  }
+  
+  /* Contenedor que agrupa el video y el overlay */
+  #camera-container {
+    position: relative;    /* Necesario para el posicionamiento absoluto del overlay */
+    display: inline-block; /* Para que se ajuste al tamaño del video */
+  }
+  
+  /* Estilo para el video */
+  video {
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  /* Recuadro verde sobre la cámara */
+  #overlay {
+    position: absolute;
+    border: 4px solid green;  /* Borde verde */
+    width: 60%;               /* 60% del ancho del contenedor */
+    aspect-ratio: 1 / 1;      /* Fuerza a que la altura sea igual a la anchura */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centra el recuadro en el contenedor */
+    pointer-events: none;
+  }
+  
+  
+  /* Opcional para canvas e imagen en el submenú "Input" */
+  canvas, #input-section img {
+    width: 100%;
+    max-width: 400px;
+    margin: 10px 0;
+  }
+  
