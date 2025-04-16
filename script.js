@@ -4,7 +4,7 @@ const photo = document.getElementById("photo");
 const captureButton = document.getElementById("capture");
 
 // Acceder a la cámara
-navigator.mediaDevices.getUserMedia({ video: true })
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", advanced: [{ torch: true }] } })
   .then(stream => {
       video.srcObject = stream;
   })
