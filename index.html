@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cámara: Flash Temporal y Última Imagen Capturada</title>
+    <title>Cámara: Flash Temporal y Envío de Imagen</title>
     <!-- Vinculamos la hoja de estilos -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <h1>Aplicación Camara</h1>
+    <h1>Cámara con Flash Temporal y Envío</h1>
     
     <!-- Contenedor del video -->
     <div id="camera-container">
       <video id="video" autoplay playsinline></video>
-      <!-- Overlay (recuadro verde) que será cuadrado y se definirá dinámicamente -->
+      <!-- Overlay verde (recuadro) que será cuadrado y se definirá dinámicamente -->
       <div class="green-overlay-video"></div>
     </div>
     
@@ -26,13 +26,13 @@
       <img id="lastImage" src="" alt="Última imagen capturada" />
     </div>
     
-    <!-- Área de depuración para mensajes (opcional) -->
+    <!-- Área de depuración (opcional) -->
     <div id="debug">
-      <h3>Mensajes de depuración</h3>
+      <h3>Mensajes de Depuración</h3>
       <ul id="debugList"></ul>
     </div>
     
-    <!-- Vinculamos el archivo JavaScript -->
+    <!-- Vinculamos el archivo de JavaScript -->
     <script src="script.js"></script>
   </body>
 </html>

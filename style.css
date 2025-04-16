@@ -5,27 +5,27 @@ body {
   margin: 20px;
 }
 
-/* Contenedor del video con posicionamiento relativo */
+/* Contenedor del video: se establece como relative para posicionar el overlay */
 #camera-container {
   position: relative;
   display: inline-block;
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  background: #000; /* Se hace más notorio si el video tarda en cargar */
+  background: #000; /* Ayuda a notar el área en caso de que el video tarde en cargar */
 }
 
-/* El video se adapta al ancho del contenedor */
+/* El video se adapta al contenedor */
 video {
   width: 100%;
   display: block;
 }
 
-/* Overlay verde superpuesto: las dimensiones se actualizarán vía JavaScript */
+/* Overlay verde superpuesto; el tamaño y posición se asignarán via JavaScript */
 .green-overlay-video {
   position: absolute;
   border: 3px solid green;
-  pointer-events: none; /* No interfiere con la interacción con el video */
+  pointer-events: none; /* Permite seguir interactuando con el video */
   z-index: 10;
 }
 
