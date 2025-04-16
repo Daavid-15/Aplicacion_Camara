@@ -95,31 +95,34 @@ function capturePhoto() {
   const context = canvas.getContext("2d");
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
   
-  // Convertir el canvas a una Data URL
   const dataURL = canvas.toDataURL("image/png");
-  
-  // Mostrar la imagen capturada en la sección "Última imagen capturada"
   lastImage.src = dataURL;
-  debugLog("Imagen capturada y mostrada en 'Última imagen capturada'");
+  debugLog("Imagen capturada y mostrada");
   
-  // Preparar la imagen (eliminar la cabecera) para enviarla en formato Base64
   const base64Image = dataURL.split(",")[1];
-  const payload = { image: base64Image };
-  
-  // Endpoint al que se enviará la imagen
-  const endpoint = "https://script.google.com/macros/s/AKfycbx8rXC77F7co76H7qAhsATZtG-E50qf6tYE_07RWSZTgsr6YJJ14a6SZXS71jAhQtHq/exec";
-  
+  //const base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const endpoint = "https://script.google.com/macros/s/AKfycbwC4Xbx_9dm3LM8HafvwuC6akIN25oXMQNblN-0sQNjlh9j4kmFL1wdwIO2YLUxKIEA/exec";
+
   fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    headers: { 
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ image: base64Image })
   })
-    .then(response => response.text())
-    .then(result => {
-      debugLog("Imagen enviada, respuesta: " + result);
-    })
-    .catch(error => {
-      debugLog("Error al enviar la imagen: " + error);
-      console.error(error);
-    });
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(result => {
+    debugLog(`Respuesta del servidor: ${JSON.stringify(result)}`);
+  })
+  .catch(error => {
+    debugLog("Error en la solicitud: " + error.message); // Mensaje detallado
+    console.error("Detalles completos:", error);
+  });
 }
+
