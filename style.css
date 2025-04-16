@@ -5,24 +5,43 @@ body {
   margin: 20px;
 }
 
-/* Contenedor de la cámara: centra el video y lo posiciona de forma relativa */
+/* Contenedor del video con posicionamiento relativo */
 #camera-container {
   position: relative;
   display: inline-block;
-}
-
-/* El video se adapta al ancho de la pantalla, con un máximo de 400px */
-video {
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
+  background: #000; /* Se hace más notorio si el video tarda en cargar */
 }
 
-/* El canvas se utiliza internamente para procesar la imagen y se oculta */
-#canvas {
-  display: none;
+/* El video se adapta al ancho del contenedor */
+video {
+  width: 100%;
+  display: block;
 }
 
-/* Área para ver los mensajes de depuración */
+/* Overlay verde superpuesto: las dimensiones se actualizarán vía JavaScript */
+.green-overlay-video {
+  position: absolute;
+  border: 3px solid green;
+  pointer-events: none; /* No interfiere con la interacción con el video */
+  z-index: 10;
+}
+
+/* Sección para mostrar la última imagen capturada */
+#last-captured {
+  margin-top: 20px;
+}
+
+#last-captured img {
+  width: 100%;
+  max-width: 400px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Área de depuración */
 #debug {
   margin-top: 20px;
   padding: 10px;
@@ -33,12 +52,10 @@ video {
   background-color: #f9f9f9;
 }
 
-/* Título del área de depuración */
 #debug h3 {
   margin-top: 0;
 }
 
-/* Lista para los mensajes de depuración sin viñetas y sin padding */
 #debug ul {
   list-style: none;
   padding-left: 0;

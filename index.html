@@ -1,168 +1,38 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplicación de Cámara con carga a Drive</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        margin: 20px;
-      }
-      #camera-container {
-        position: relative;
-        display: inline-block;
-      }
-      video {
-        width: 100%;
-        max-width: 400px;
-      }
-      /* El canvas se usa internamente y se oculta */
-      #canvas {
-        display: none;
-      }
-      /* Área para ver los mensajes de depuración */
-      #debug {
-        margin-top: 20px;
-        padding: 10px;
-        border: 1px solid #ccc;
-        text-align: left;
-        max-width: 600px;
-        margin: 20px auto 0;
-        background-color: #f9f9f9;
-      }
-      #debug h3 {
-        margin-top: 0;
-      }
-      #debug ul {
-        list-style: none;
-        padding-left: 0;
-      }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cámara: Flash Temporal y Última Imagen Capturada</title>
+    <!-- Vinculamos la hoja de estilos -->
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <h1>Aplicación de Cámara</h1>
-
+    <h1>Aplicación Camara</h1>
+    
+    <!-- Contenedor del video -->
     <div id="camera-container">
-      <video id="video" autoplay></video>
+      <video id="video" autoplay playsinline></video>
+      <!-- Overlay (recuadro verde) que será cuadrado y se definirá dinámicamente -->
+      <div class="green-overlay-video"></div>
     </div>
-    <br>
+    
+    <!-- Botón para capturar la foto -->
     <button id="capture">Capturar Foto</button>
-
-    <h2>Foto Capturada</h2>
-    <img id="photo" src="" alt="Foto tomada" width="400">
-
-    <!-- Área de depuración -->
+    
+    <!-- Sección para mostrar la última imagen capturada -->
+    <div id="last-captured">
+      <h2>Última imagen capturada</h2>
+      <img id="lastImage" src="" alt="Última imagen capturada" />
+    </div>
+    
+    <!-- Área de depuración para mensajes (opcional) -->
     <div id="debug">
       <h3>Mensajes de depuración</h3>
       <ul id="debugList"></ul>
     </div>
-
-    <canvas id="canvas"></canvas>
-
-    <script>
-      // Función para agregar mensajes al área de depuración y a la consola
-      function debugLog(message) {
-        console.log(message);
-        const debugList = document.getElementById('debugList');
-        const li = document.createElement('li');
-        li.textContent = message;
-        debugList.appendChild(li);
-      }
-
-      // Elementos del DOM
-      const video = document.getElementById("video");
-      const canvas = document.getElementById("canvas");
-      const photo = document.getElementById("photo");
-      const captureButton = document.getElementById("capture");
-      let stream;
-
-      // Acceso a la cámara trasera
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(s => {
-          stream = s;
-          video.srcObject = stream;
-          debugLog("Acceso a la cámara concedido");
-        })
-        .catch(error => {
-          console.error("Error al acceder a la cámara:", error);
-          debugLog("Error al acceder a la cámara: " + error);
-        });
-
-      captureButton.addEventListener("click", async () => {
-        debugLog("Botón 'Capturar Foto' presionado");
-        // Obtener la pista de video
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-
-        // Activar el flash (torch) si está disponible
-        if (capabilities.torch) {
-          try {
-            await track.applyConstraints({ advanced: [{ torch: true }] });
-            debugLog("Flash activado temporalmente");
-          } catch (e) {
-            console.error("Error al activar el flash:", e);
-            debugLog("Error al activar el flash: " + e);
-          }
-        }
-
-        // Esperar 100 ms para simular el flash y capturar la imagen
-        setTimeout(async () => {
-          const context = canvas.getContext("2d");
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          // Actualiza el src del <img> para mostrar la imagen capturada
-          photo.src = canvas.toDataURL("image/png");
-          debugLog("Imagen capturada y mostrada en la página");
-
-          // Apagar el flash si se había activado
-          if (capabilities.torch) {
-            try {
-              await track.applyConstraints({ advanced: [{ torch: false }] });
-              debugLog("Flash desactivado");
-            } catch (e) {
-              console.error("Error al apagar el flash:", e);
-              debugLog("Error al apagar el flash: " + e);
-            }
-          }
-
-          // Enviar la imagen al Web App de Google Apps Script
-          sendImageToAppsScript(photo.src);
-        }, 100); // Espera de 100 ms
-      });
-
-      // Función para enviar la imagen al script de Google Apps Script
-      function sendImageToAppsScript(dataURL) {
-        debugLog("Preparando imagen para enviar al Apps Script");
-
-        // Quitar la cabecera para quedarnos sólo con la cadena base64
-        const base64Image = dataURL.split(',')[1];
-        const payload = { image: base64Image };
-
-        // URL del Web App de Apps Script  
-        // (Reemplaza la siguiente URL con la URL de tu despliegue)
-        const scriptURL = 'https://script.google.com/macros/s/AKfycbx8rXC77F7co76H7qAhsATZtG-E50qf6tYE_07RWSZTgsr6YJJ14a6SZXS71jAhQtHq/exec';
-
-        fetch(scriptURL, {
-          method: 'POST',
-          // Si experimentas problemas de CORS, puedes usar 'no-cors' pero se limitará la respuesta.
-          // mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        })
-        .then(response => response.text())
-        .then(data => {
-          debugLog("Respuesta del servidor: " + data);
-        })
-        .catch(error => {
-          console.error("Error al enviar la imagen:", error);
-          debugLog("Error al enviar la imagen: " + error);
-        });
-      }
-    </script>
+    
+    <!-- Vinculamos el archivo JavaScript -->
+    <script src="script.js"></script>
   </body>
 </html>

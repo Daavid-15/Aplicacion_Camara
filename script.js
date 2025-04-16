@@ -1,100 +1,106 @@
-// Función para agregar mensajes de depuración en la consola y en el área de depuración de la página.
+// Función para agregar mensajes de depuración tanto en la consola como en la página.
 function debugLog(message) {
   console.log(message);
-  const debugList = document.getElementById('debugList');
-  const li = document.createElement('li');
+  const debugList = document.getElementById("debugList");
+  const li = document.createElement("li");
   li.textContent = message;
   debugList.appendChild(li);
 }
 
-// Elementos del DOM que usaremos.
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const photo = document.getElementById("photo");
 const captureButton = document.getElementById("capture");
+const lastImage = document.getElementById("lastImage");
 
-let stream;
-
-// Solicitar acceso a la cámara usando la API getUserMedia para la cámara trasera.
+// Solicitar acceso a la cámara con la opción 'facingMode: environment' para usar la cámara trasera.
 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-  .then(s => {
-    stream = s;
+  .then(stream => {
     video.srcObject = stream;
     debugLog("Acceso a la cámara concedido");
+    
+    // Una vez carguen los metadatos del video, actualizar el overlay
+    video.addEventListener("loadedmetadata", updateOverlay);
   })
   .catch(error => {
-    console.error("Error al acceder a la cámara:", error);
     debugLog("Error al acceder a la cámara: " + error);
+    console.error(error);
   });
 
-// Añadir un evento al botón de captura.
-captureButton.addEventListener("click", async () => {
-  debugLog("Botón 'Capturar Foto' presionado");
-
-  // Obtener la pista de video para, si es posible, activar el flash.
-  const track = stream.getVideoTracks()[0];
-  const capabilities = track.getCapabilities();
-
-  // Si el dispositivo soporta el flash (torch), intentamos activarlo.
-  if (capabilities.torch) {
-    try {
-      await track.applyConstraints({ advanced: [{ torch: true }] });
-      debugLog("Flash activado");
-    } catch (e) {
-      console.error("Error al activar el flash:", e);
-      debugLog("Error al activar el flash: " + e);
-    }
-  }
-
-  // Esperar 100 ms para simular el flash y capturar la imagen.
-  setTimeout(async () => {
-    const context = canvas.getContext("2d");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    // Mostrar la imagen capturada en el elemento <img>
-    photo.src = canvas.toDataURL("image/png");
-    debugLog("Imagen capturada y mostrada");
-
-    // Apagar el flash si se había activado.
-    if (capabilities.torch) {
-      try {
-        await track.applyConstraints({ advanced: [{ torch: false }] });
-        debugLog("Flash desactivado");
-      } catch (e) {
-        console.error("Error al apagar el flash:", e);
-        debugLog("Error al apagar el flash: " + e);
-      }
-    }
-
-    // Enviar la imagen capturada al Apps Script.
-    sendImageToAppsScript(photo.src);
-  }, 100);
-});
-
-// Función para enviar la imagen capturada al Web App de Google Apps Script.
-function sendImageToAppsScript(dataURL) {
-  debugLog("Preparando imagen para enviar al Apps Script");
-
-  // Eliminar la cabecera "data:image/png;base64," para quedarse con la cadena base64.
-  const base64Image = dataURL.split(',')[1];
-  const payload = { image: base64Image };
-
-  // URL de tu Web App en Google Apps Script.
-  const scriptURL = 'https://script.google.com/macros/s/AKfycbx8rXC77F7co76H7qAhsATZtG-E50qf6tYE_07RWSZTgsr6YJJ14a6SZXS71jAhQtHq/exec';
-
-  fetch(scriptURL, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(payload)
-  })
-  .then(response => response.text())
-  .then(result => {
-     debugLog("Respuesta del servidor: " + result);
-  })
-  .catch(error => {
-     console.error("Error al enviar la imagen:", error);
-     debugLog("Error al enviar la imagen: " + error);
-  });
+// Función para actualizar el overlay verde: lo hace un cuadrado que ocupa el 60% de la dimensión más pequeña.
+function updateOverlay() {
+  const container = document.getElementById("camera-container");
+  const overlay = document.querySelector(".green-overlay-video");
+  
+  // Obtener dimensiones actuales del contenedor
+  const rect = container.getBoundingClientRect();
+  const width = rect.width;
+  const height = rect.height;
+  
+  // Calcular la dimensión menor y el 60% de la misma para que sea cuadrado
+  const smaller = Math.min(width, height);
+  const size = smaller * 0.6;
+  
+  overlay.style.width = size + "px";
+  overlay.style.height = size + "px";
+  overlay.style.left = ((width - size) / 2) + "px";
+  overlay.style.top = ((height - size) / 2) + "px";
+  
+  debugLog("Overlay actualizado: tamaño " + size + "px; contenedor " + width + "x" + height);
 }
 
+// Actualizar el overlay si cambia el tamaño de la ventana.
+window.addEventListener("resize", updateOverlay);
+
+// Función para capturar la foto, activando el flash solo durante ese instante.
+captureButton.addEventListener("click", () => {
+  debugLog("Botón 'Capturar Foto' presionado");
+  
+  // Obtener la pista del stream del video
+  const stream = video.srcObject;
+  const track = stream.getVideoTracks()[0];
+  const capabilities = track.getCapabilities();
+  
+  // Si el dispositivo soporta torch (flash), activarlo temporalmente
+  if (capabilities.torch) {
+    track.applyConstraints({ advanced: [{ torch: true }] })
+      .then(() => {
+        debugLog("Flash activado temporalmente");
+        // Esperar 100 ms y luego capturar la imagen
+        setTimeout(() => {
+          capturePhoto();
+          // Desactivar el flash inmediatamente después de capturar
+          track.applyConstraints({ advanced: [{ torch: false }] })
+            .then(() => debugLog("Flash desactivado"))
+            .catch(e => {
+              debugLog("Error al desactivar el flash: " + e);
+              console.error(e);
+            });
+        }, 100);
+      })
+      .catch(e => {
+        debugLog("Error al activar el flash: " + e);
+        console.error(e);
+        // Si fallamos al activar el flash, capturamos la foto sin él.
+        capturePhoto();
+      });
+  } else {
+    // Si no hay flash disponible, capturamos la foto sin activarlo.
+    capturePhoto();
+  }
+});
+
+// Función que captura la imagen del video usando un canvas.
+function capturePhoto() {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext("2d");
+  
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+  // Convertir a Data URL (imagen en formato PNG)
+  const dataURL = canvas.toDataURL("image/png");
+  
+  // Mostrar la imagen capturada en la sección "Última imagen capturada"
+  lastImage.src = dataURL;
+  debugLog("Imagen capturada y mostrada en la sección 'Última imagen capturada'");
+}
