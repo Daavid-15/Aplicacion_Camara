@@ -51,40 +51,37 @@ function updateOverlay() {
 window.addEventListener("resize", updateOverlay);
 
 // Función para capturar la imagen, activar el flash temporalmente y luego enviarla
-captureButton.addEventListener("click", () => {
+captureButton.addEventListener("click", async () => {
   debugLog("Botón 'Capturar Foto' presionado");
-  
+
   const stream = video.srcObject;
   const track = stream.getVideoTracks()[0];
   const capabilities = track.getCapabilities();
-  
-  // Si el dispositivo soporta flash (torch), activarlo sólo durante la captura.
+
   if (capabilities.torch) {
-    track.applyConstraints({ advanced: [{ torch: true }] })
-      .then(() => {
-        debugLog("Flash activado");
-        setTimeout(() => {
-          capturePhoto();
-          // Desactivar el flash inmediatamente después de la captura.
-          track.applyConstraints({ advanced: [{ torch: false }] })
-            .then(() => debugLog("Flash desactivado"))
-            .catch(e => {
-              debugLog("Error al desactivar el flash: " + e);
-              console.error(e);
-            });
-        }, 100); // El flash se activa por 100 ms.
-      })
-      .catch(e => {
-        debugLog("Error al activar el flash: " + e);
-        console.error(e);
-        // Si falla activar el flash, capturamos la foto sin él.
-        capturePhoto();
-      });
+    try {
+      // Activar flash y esperar su activación completa
+      await track.applyConstraints({ advanced: [{ torch: true }] });
+      debugLog("Flash activado");
+
+      // Capturar foto mientras el flash está encendido
+      capturePhoto();
+
+      // Apagar el flash después de la captura
+      await track.applyConstraints({ advanced: [{ torch: false }] });
+      debugLog("Flash desactivado");
+    } catch (e) {
+      debugLog("Error al manejar el flash: " + e);
+      console.error(e);
+      // Capturar la foto sin flash si hay error
+      capturePhoto();
+    }
   } else {
-    // Si no hay flash, solo capturamos la foto.
+    // Si no hay flash, tomar la foto normalmente
     capturePhoto();
   }
 });
+
 
 // Función para capturar la imagen del video y enviarla al endpoint
 function capturePhoto() {
@@ -101,28 +98,22 @@ function capturePhoto() {
   
   const base64Image = dataURL.split(",")[1];
   //const base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const endpoint = "https://script.google.com/macros/s/AKfycbwC4Xbx_9dm3LM8HafvwuC6akIN25oXMQNblN-0sQNjlh9j4kmFL1wdwIO2YLUxKIEA/exec";
+  const endpoint = "https://script.google.com/macros/s/AKfycbyD4_GjEfY9Ntix9-5M9FghK-y97Od8kaS-WXm54wMv9d_8POFja2HJNI9sjbpsD9T9/exec";
 
   fetch(endpoint, {
     method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
+    mode: "no-cors", // La respuesta será opaca
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: base64Image })
   })
   .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  })
-  .then(result => {
-    debugLog(`Respuesta del servidor: ${JSON.stringify(result)}`);
+    // Aquí no tendrás acceso a la respuesta real
+    debugLog("Solicitud enviada en modo no-cors");
   })
   .catch(error => {
-    debugLog("Error en la solicitud: " + error.message); // Mensaje detallado
-    console.error("Detalles completos:", error);
+    debugLog("Error en la solicitud: " + error.message);
+    console.error(error);
   });
+  
 }
 
