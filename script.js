@@ -158,29 +158,31 @@ function sendPhoto() {
     return;
   }
   
-  // Mostrar mensaje "Enviando..." en la depuración
   debugLog("Enviando...");
   
+  // Obtener nuevamente el blob desde la URL del objeto
   fetch(lastImage.src)
     .then(response => response.blob())
     .then(blob => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        let base64Image = reader.result.split(",")[1];
-        let endpoint = "https://script.google.com/macros/s/AKfycbyp-_LEh2vpD6s48Rly9bmurJGWD0FdjjzXWTqlyiLA2lZl6kLBa3QCb2nvvR4oK_yu/exec";
-        fetch(endpoint, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Image })
+      // Crear un objeto FormData y agregar el blob con un nombre de archivo.
+      const formData = new FormData();
+      formData.append("image", blob, "capturada.png");  
+      
+      // Define el endpoint al que enviarás la imagen.
+      let endpoint = "https://script.google.com/macros/s/AKfycbyp-_LEh2vpD6s48Rly9bmurJGWD0FdjjzXWTqlyiLA2lZl6kLBa3QCb2nvvR4oK_yu/exec";
+      
+      fetch(endpoint, {
+        method: "POST",
+        mode: "no-cors",
+        body: formData
+      })
+        .then(() => {
+          debugLog("Imagen enviada correctamente");
+          resetCameraState();
         })
-          .then(() => {
-            debugLog("Imagen enviada correctamente");
-            resetCameraState();
-          })
-          .catch(err => debugLog("Error enviando la imagen: " + err.message));
-      };
-      reader.readAsDataURL(blob);
+        .catch(err => {
+          debugLog("Error enviando la imagen: " + err.message);
+        });
     })
     .catch(err => debugLog("Error procesando la imagen: " + err));
 }
