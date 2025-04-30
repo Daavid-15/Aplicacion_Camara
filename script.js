@@ -22,8 +22,10 @@ function initCamera() {
   navigator.mediaDevices.getUserMedia({
     video: {
       facingMode: "environment",
-      width: { ideal: 3840 },
-      height: { ideal: 2160 }
+      width: { ideal: 1920 },
+      // Se omite el height y se usa aspectRatio para que se calcule en función del ancho
+      aspectRatio: { ideal: 16/9 }
+  
     }
   })
     .then(s => {
@@ -86,54 +88,47 @@ function resetCameraState() {
 // Evento para capturar la foto
 captureButton.addEventListener("click", async () => {
   debugLog("Capturando imagen...");
-  
   let track;
   try {
     track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities();
+    let blob;
+    // Captura la imagen sin opciones adicionales (ya que setOptions() no está disponible)
+    blob = await imageCapture.takePhoto();
+    debugLog("Foto capturada con takePhoto()");
     
-    // 1. Usar flash nativo si está disponible.
-    if (capabilities.fillLightMode?.includes("flash")) {
-      await imageCapture.setOptions({ fillLightMode: "flash" });
-      const blob = await imageCapture.takePhoto();
-      lastImage.src = URL.createObjectURL(blob);
-      debugLog("Foto con flash");
-    } 
-    // 2. Usar antorcha si el flash nativo no está disponible.
-    else if (capabilities.torch) {
-      try {
-        await track.applyConstraints({ advanced: [{ torch: true }] });
-        debugLog("Linterna activada");
-        await new Promise(resolve => setTimeout(resolve, 200)); // Espera para estabilización
-        const blob = await imageCapture.takePhoto();
-        lastImage.src = URL.createObjectURL(blob);
-        debugLog("Foto sacada");
-      } finally {
-        if (track && capabilities.torch) {
-          await track.applyConstraints({ advanced: [{ torch: false }] })
-            .then(() => debugLog("Linterna desactivada"))
-            .catch(err => debugLog("Error apagando linterna: " + err));
-        }
-      }
-    } 
-    // 3. Captura sin flash.
-    else {
-      const blob = await imageCapture.takePhoto();
-      lastImage.src = URL.createObjectURL(blob);
-      debugLog("Foto sin flash");
-    }
-    
-    // Mostrar la imagen capturada en el contenedor manteniendo el overlay.
-    video.style.display = "none";
-    lastImage.style.display = "block";
-    
-    // Mostrar los botones de enviar y descartar, y ocultar el de capturar.
-    sendButton.style.display = "inline-block";
-    discardButton.style.display = "inline-block";
-    captureButton.style.display = "none";
-    
-    // Actualizamos el overlay en caso de que la disposición cambie.
-    updateOverlay();
+    // Crear una imagen temporal para cargar el blob
+    const tempImg = new Image();
+    tempImg.onload = () => {
+      // Aquí definimos la relación deseada, por ejemplo 16:9.
+      const desiredAspectRatio = 16 / 9;
+      
+      // Usamos las dimensiones nativas del video como base
+      const baseWidth = video.clientWidth;
+      const desiredHeight = Math.floor(baseWidth / desiredAspectRatio);
+      
+      // Crear un canvas con las dimensiones deseadas
+      const canvas = document.createElement("canvas");
+      canvas.width = baseWidth;
+      canvas.height = desiredHeight;
+      const ctx = canvas.getContext("2d");
+      
+      // Dibujar la imagen; se ajusta al tamaño establecido
+      ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
+      
+      // Extraer el blob del canvas (puedes elegir PNG que es lossless o JPEG con alta calidad)
+      canvas.toBlob((resBlob) => {
+        lastImage.src = URL.createObjectURL(resBlob);
+        // Actualizamos la vista
+        video.style.display = "none";
+        lastImage.style.display = "block";
+        sendButton.style.display = "inline-block";
+        discardButton.style.display = "inline-block";
+        captureButton.style.display = "none";
+        updateOverlay();
+        debugLog("Imagen reescalada a la relación " + desiredAspectRatio);
+      }, "image/png");
+    };
+    tempImg.src = URL.createObjectURL(blob);
     
   } catch (error) {
     debugLog("Error en captura: " + error);
@@ -149,6 +144,8 @@ captureButton.addEventListener("click", async () => {
     }
   }
 });
+
+
 
 // Función para enviar la imagen capturada al back-end y restablecer la vista
 function sendPhoto() {
