@@ -19,21 +19,31 @@ let imageCapture;
 
 // Inicializa la cámara
 function initCamera() {
-  navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: "environment",
-      width: { ideal: 1920 },
-      // Se omite el height y se usa aspectRatio para que se calcule en función del ancho
-      aspectRatio: { ideal: 16/9 }
-  
-    }
-  })
+  navigator.mediaDevices
+    .getUserMedia({
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        // Se omite el height y se usa aspectRatio para que se calcule en función del ancho
+        aspectRatio: { ideal: 16 / 9 }
+      }
+    })
     .then(s => {
       stream = s;
       video.srcObject = stream;
       
-      // Actualizar el overlay cuando se carguen los metadatos
-      video.addEventListener("loadedmetadata", updateOverlay);
+      // Cuando se carguen los metadatos, actualizamos el overlay y mostramos las dimensiones.
+      video.addEventListener("loadedmetadata", () => {
+        updateOverlay();
+        // Usamos getSettings() para asegurarnos de obtener las dimensiones reales
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        // Si settings.width/height no están definidos, usamos las propiedades del video
+        const width = settings.width || video.videoWidth;
+        const height = settings.height || video.videoHeight;
+        const aspectRatio = (width / height).toFixed(2);
+        debugLog(`Resolución del video: width = ${width}, height = ${height}, aspectRatio = ${aspectRatio}`);
+      });
       
       const track = stream.getVideoTracks()[0];
       imageCapture = new ImageCapture(track);
@@ -45,8 +55,10 @@ function initCamera() {
         torch: capabilities.torch ? 'soportado' : 'no soportado'
       }));
       
-    }).catch(error => debugLog("Error cámara: " + error));
+    })
+    .catch(error => debugLog("Error cámara: " + error));
 }
+
 
 initCamera();
 
@@ -93,48 +105,51 @@ captureButton.addEventListener("click", async () => {
   try {
     track = stream.getVideoTracks()[0];
     const capabilities = track.getCapabilities();
+    // Definir los photoSettings que deseas utilizar
+    // Es recomendable definir imageWidth e imageHeight dentro de los límites que soporte el dispositivo.
+    let photoSettings = {
+      imageWidth: 1920,   // Valor deseado: ajusta según tus necesidades o consulta las capacidades
+      imageHeight: 1080,  // Valor deseado
+    };
     
-    // 1. Usar flash nativo si está disponible.
-    if (capabilities.fillLightMode?.includes("flash")) {
-      await imageCapture.setOptions({ fillLightMode: "flash" });
-      const blob = await imageCapture.takePhoto();
-      lastImage.src = URL.createObjectURL(blob);
-      debugLog("Foto con flash");
-    } 
-    // 2. Usar antorcha si el flash nativo no está disponible.
+    // Si el dispositivo soporta flash nativo, lo establecemos en los settings
+    if (capabilities.fillLightMode && capabilities.fillLightMode.includes("flash")) {
+      photoSettings.fillLightMode = "flash";
+      debugLog("Configurar photoSettings con flash: " + JSON.stringify(photoSettings));
+    }
+    // Si no, pero existe la opción torch, lo activamos manualmente
     else if (capabilities.torch) {
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
-        debugLog("Linterna activada");
-        await new Promise(resolve => setTimeout(resolve, 200)); // Espera para estabilización
-        const blob = await imageCapture.takePhoto();
-        lastImage.src = URL.createObjectURL(blob);
-        debugLog("Foto sacada");
-      } finally {
-        if (track && capabilities.torch) {
-          await track.applyConstraints({ advanced: [{ torch: false }] })
-            .then(() => debugLog("Linterna desactivada"))
-            .catch(err => debugLog("Error apagando linterna: " + err));
-        }
+        debugLog("Linterna activada manualmente");
+        // Nota: No se establece fillLightMode en photoSettings en este caso, ya que torch se controla vía constraints.
+      } catch (err) {
+        debugLog("Error al activar linterna: " + err);
       }
-    } 
-    // 3. Captura sin flash.
-    else {
-      const blob = await imageCapture.takePhoto();
-      lastImage.src = URL.createObjectURL(blob);
-      debugLog("Foto sin flash");
     }
     
-    // Mostrar la imagen capturada en el contenedor manteniendo el overlay.
+    // Ahora se captura la fotografía pasando los photoSettings deseados.
+    const blob = await imageCapture.takePhoto(photoSettings);
+    lastImage.src = URL.createObjectURL(blob);
+    debugLog("Foto capturada con settings: " + JSON.stringify(photoSettings));
+    
+    // Si se activó torch, desactívala (para asegurar que siga apagada)
+    if (capabilities.torch) {
+      await track.applyConstraints({ advanced: [{ torch: false }] })
+        .then(() => debugLog("Linterna desactivada"))
+        .catch(err => debugLog("Error apagando linterna: " + err));
+    }
+    
+    // Mostrar la imagen capturada en el contenedor
     video.style.display = "none";
     lastImage.style.display = "block";
     
-    // Mostrar los botones de enviar y descartar, y ocultar el de capturar.
+    // Mostrar los botones de enviar y descartar, y ocultar el de capturar
     sendButton.style.display = "inline-block";
     discardButton.style.display = "inline-block";
     captureButton.style.display = "none";
     
-    // Actualizamos el overlay en caso de que la disposición cambie.
+    // Actualizar el overlay
     updateOverlay();
     
   } catch (error) {
