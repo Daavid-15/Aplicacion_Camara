@@ -3,30 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cámara Portatil</title>
+    <title>Cámara Portátil</title>
     <!-- Vinculamos la hoja de estilos -->
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Estilos para que tanto el video como la imagen ocupen el mismo contenedor,
+         y el overlay se posicione de forma absoluta en él */
+      #camera-container {
+        position: relative;
+        max-width: 640px;
+        margin: auto;
+      }
+      #video,
+      #lastImage {
+        width: 100%;
+        height: auto;
+      }
+      /* El overlay se posiciona absolutamente y tendrá un borde verde */
+      .green-overlay-video {
+        position: absolute;
+        border: 2px solid green;
+      }
+      /* Oculta inicialmente la imagen capturada */
+      #lastImage {
+        display: none;
+      }
+      /* Oculta inicialmente los botones de enviar y descartar */
+      #send,
+      #discard {
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    <h1>Cámara Portatil</h1>
+    <h1>Cámara Portátil</h1>
     
-    <!-- Contenedor del video -->
+    <!-- Contenedor que muestra el video o la imagen capturada -->
     <div id="camera-container">
       <video id="video" autoplay playsinline></video>
-      <!-- Overlay verde (recuadro) que será cuadrado y se definirá dinámicamente -->
+      <!-- La imagen capturada se mostrará aquí en lugar del video -->
+      <img id="lastImage" src="" alt="Imagen capturada" />
+      <!-- Overlay que se adapta dinámicamente -->
       <div class="green-overlay-video"></div>
     </div>
     
-    <!-- Botón para capturar la foto -->
+    <!-- Botones -->
     <button id="capture">Sacar Foto</button>
+    <button id="send">Enviar Imagen</button>
+    <button id="discard">Descartar</button>
     
-    <!-- Sección para mostrar la última imagen capturada -->
-    <div id="last-captured">
-      <h2>Última imagen capturada</h2>
-      <img id="lastImage" src="" alt="Última imagen capturada" />
-    </div>
-    
-    <!-- Área de depuración (opcional) -->
+    <!-- Área de depuración -->
     <div id="debug">
       <h3>Mensajes de Depuración</h3>
       <ul id="debugList"></ul>

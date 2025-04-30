@@ -1,4 +1,4 @@
-// Función para agregar mensajes de depuración en la consola y en el DOM.
+// Función para agregar mensajes de depuración 
 function debugLog(message) {
   console.log(message);
   const debugList = document.getElementById("debugList");
@@ -8,28 +8,49 @@ function debugLog(message) {
 }
 
 const video = document.getElementById("video");
-const captureButton = document.getElementById("capture");
 const lastImage = document.getElementById("lastImage");
+const captureButton = document.getElementById("capture");
+const sendButton = document.getElementById("send");
+const discardButton = document.getElementById("discard");
+const container = document.getElementById("camera-container");
 
-// Solicitar acceso a la cámara (usando la cámara trasera)
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-  .then(stream => {
-    video.srcObject = stream;
-    debugLog("Acceso a la cámara concedido");
-    // Cuando se carguen los metadatos (dimensiones) del video, actualizar el overlay.
-    video.addEventListener("loadedmetadata", updateOverlay);
+let stream;
+let imageCapture;
+
+// Inicializa la cámara
+function initCamera() {
+  navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: "environment",
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
+    }
   })
-  .catch(error => {
-    debugLog("Error al acceder a la cámara: " + error);
-    console.error(error);
-  });
+    .then(s => {
+      stream = s;
+      video.srcObject = stream;
+      
+      // Actualizar el overlay cuando se carguen los metadatos
+      video.addEventListener("loadedmetadata", updateOverlay);
+      
+      const track = stream.getVideoTracks()[0];
+      imageCapture = new ImageCapture(track);
+      
+      // Mostrar capacidades de la cámara
+      const capabilities = track.getCapabilities();
+      debugLog("Cámara:" + JSON.stringify({
+        flash: capabilities.fillLightMode || 'no soportado',
+        torch: capabilities.torch ? 'soportado' : 'no soportado'
+      }));
+      
+    }).catch(error => debugLog("Error cámara: " + error));
+}
+
+initCamera();
 
 // Función para actualizar el tamaño y posición del overlay verde (cuadrado)
-// El overlay ocupará el 60% de la dimensión más pequeña del contenedor.
+// El overlay ocupará el 60% de la dimensión menor del contenedor.
 function updateOverlay() {
-  const container = document.getElementById("camera-container");
-  const overlay = document.querySelector(".green-overlay-video");
-  
   const rect = container.getBoundingClientRect();
   const width = rect.width;
   const height = rect.height;
@@ -38,82 +59,135 @@ function updateOverlay() {
   const smaller = Math.min(width, height);
   const size = smaller * 0.6;
   
-  // Configurar el overlay para que sea un cuadrado y esté centrado
+  // Configurar el overlay para que sea un cuadrado centrado
+  const overlay = document.querySelector(".green-overlay-video");
   overlay.style.width = size + "px";
   overlay.style.height = size + "px";
   overlay.style.left = ((width - size) / 2) + "px";
   overlay.style.top = ((height - size) / 2) + "px";
-  
-  
 }
 
-// Actualizar el overlay si cambia el tamaño de la ventana.
+// Actualiza el overlay si cambia el tamaño de la ventana
 window.addEventListener("resize", updateOverlay);
 
-// Función para capturar la imagen, activar el flash temporalmente y luego enviarla
+// Función para restablecer la vista:
+// Oculta la imagen, muestra el video, oculta los botones de enviar/descartar y vuelve a mostrar el botón de capturar.
+function resetCameraState() {
+  lastImage.src = "";
+  lastImage.style.display = "none";
+  video.style.display = "block";
+  sendButton.style.display = "none";
+  discardButton.style.display = "none";
+  captureButton.style.display = "inline-block";
+  updateOverlay();
+  debugLog("Volviendo a la vista de video");
+}
+
+// Evento para capturar la foto
 captureButton.addEventListener("click", async () => {
-  debugLog("Botón 'Capturar Foto' presionado");
-
-  const stream = video.srcObject;
-  const track = stream.getVideoTracks()[0];
-  const capabilities = track.getCapabilities();
-
-  if (capabilities.torch) {
-    try {
-      // Activar flash y esperar su activación completa
-      await track.applyConstraints({ advanced: [{ torch: true }] });
-      debugLog("Flash activado");
-
-      // Capturar foto mientras el flash está encendido
-      capturePhoto();
-
-      // Apagar el flash después de la captura
-      await track.applyConstraints({ advanced: [{ torch: false }] });
-      debugLog("Flash desactivado");
-    } catch (e) {
-      debugLog("Error al manejar el flash: " + e);
-      console.error(e);
-      // Capturar la foto sin flash si hay error
-      capturePhoto();
+  debugLog("Capturando imagen...");
+  
+  let track;
+  try {
+    track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities();
+    
+    // 1. Usar flash nativo si está disponible.
+    if (capabilities.fillLightMode?.includes("flash")) {
+      await imageCapture.setOptions({ fillLightMode: "flash" });
+      const blob = await imageCapture.takePhoto();
+      lastImage.src = URL.createObjectURL(blob);
+      debugLog("Foto con flash");
+    } 
+    // 2. Usar antorcha si el flash nativo no está disponible.
+    else if (capabilities.torch) {
+      try {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+        debugLog("Linterna activada");
+        await new Promise(resolve => setTimeout(resolve, 200)); // Espera para estabilización
+        const blob = await imageCapture.takePhoto();
+        lastImage.src = URL.createObjectURL(blob);
+        debugLog("Foto sacada");
+      } finally {
+        if (track && capabilities.torch) {
+          await track.applyConstraints({ advanced: [{ torch: false }] })
+            .then(() => debugLog("Linterna desactivada"))
+            .catch(err => debugLog("Error apagando linterna: " + err));
+        }
+      }
+    } 
+    // 3. Captura sin flash.
+    else {
+      const blob = await imageCapture.takePhoto();
+      lastImage.src = URL.createObjectURL(blob);
+      debugLog("Foto sin flash");
     }
-  } else {
-    // Si no hay flash, tomar la foto normalmente
-    capturePhoto();
+    
+    // Mostrar la imagen capturada en el contenedor manteniendo el overlay.
+    video.style.display = "none";
+    lastImage.style.display = "block";
+    
+    // Mostrar los botones de enviar y descartar, y ocultar el de capturar.
+    sendButton.style.display = "inline-block";
+    discardButton.style.display = "inline-block";
+    captureButton.style.display = "none";
+    
+    // Actualizamos el overlay en caso de que la disposición cambie.
+    updateOverlay();
+    
+  } catch (error) {
+    debugLog("Error en captura: " + error);
+    if (track?.getCapabilities().torch) {
+      await track.applyConstraints({ advanced: [{ torch: false }] })
+        .catch(err => debugLog("Error limpiando flash: " + err));
+    }
+    throw error;
+  } finally {
+    if (track?.getCapabilities().torch) {
+      await track.applyConstraints({ advanced: [{ torch: false }] })
+        .catch(err => debugLog("Error final apagando flash: " + err));
+    }
   }
 });
 
-
-// Función para capturar la imagen del video y enviarla al endpoint
-function capturePhoto() {
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+// Función para enviar la imagen capturada al back-end y restablecer la vista
+function sendPhoto() {
+  if (!lastImage.src || lastImage.src.indexOf("blob:") !== 0) {
+    debugLog("No hay imagen para enviar");
+    alert("No hay imagen para enviar");
+    return;
+  }
   
-  const context = canvas.getContext("2d");
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Mostrar mensaje "Enviando..." en la depuración
+  debugLog("Enviando...");
   
-  const dataURL = canvas.toDataURL("image/png");
-  lastImage.src = dataURL;
-  debugLog("Imagen capturada y mostrada");
-  
-  const base64Image = dataURL.split(",")[1];
-  //const base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const endpoint = "https://script.google.com/macros/s/AKfycbyD4_GjEfY9Ntix9-5M9FghK-y97Od8kaS-WXm54wMv9d_8POFja2HJNI9sjbpsD9T9/exec";
-
-  fetch(endpoint, {
-    method: "POST",
-    mode: "no-cors", // La respuesta será opaca
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: base64Image })
-  })
-  .then(response => {
-    // Aquí no tendrás acceso a la respuesta real
-    debugLog("Solicitud enviada en modo no-cors");
-  })
-  .catch(error => {
-    debugLog("Error en la solicitud: " + error.message);
-    console.error(error);
-  });
-  
+  fetch(lastImage.src)
+    .then(response => response.blob())
+    .then(blob => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        let base64Image = reader.result.split(",")[1];
+        let endpoint = "https://script.google.com/macros/s/AKfycbyp-_LEh2vpD6s48Rly9bmurJGWD0FdjjzXWTqlyiLA2lZl6kLBa3QCb2nvvR4oK_yu/exec";
+        fetch(endpoint, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Image })
+        })
+          .then(() => {
+            debugLog("Imagen enviada correctamente");
+            resetCameraState();
+          })
+          .catch(err => debugLog("Error enviando la imagen: " + err.message));
+      };
+      reader.readAsDataURL(blob);
+    })
+    .catch(err => debugLog("Error procesando la imagen: " + err));
 }
 
+// Asignar eventos a los botones de enviar y descartar
+sendButton.addEventListener("click", sendPhoto);
+discardButton.addEventListener("click", () => {
+  debugLog("Imagen descartada");
+  resetCameraState();
+});
