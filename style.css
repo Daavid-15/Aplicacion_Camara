@@ -1,47 +1,68 @@
-/* Estilos generales para la página */
 body {
   font-family: Arial, sans-serif;
   text-align: center;
   margin: 20px;
 }
 
-/* Contenedor del video: se establece como relative para posicionar el overlay */
-#camera-container {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-  background: #000; /* Ayuda a notar el área en caso de que el video tarde en cargar */
+/* Contenedor de botones fijo */
+.button-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
 }
 
-/* El video se adapta al contenedor */
-video {
-  width: 100%;
-  display: block;
+.button-container button {
+  border: none;
+  padding: 12px 24px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
 }
 
-/* Overlay verde superpuesto; el tamaño y posición se asignarán via JavaScript */
-.green-overlay-video {
-  position: absolute;
-  border: 3px solid green;
-  pointer-events: none; /* Permite seguir interactuando con el video */
-  z-index: 10;
+#capture {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #808080;
+  color: white;
+  font-size: 0.9em;
+  order: 2;
+  display: flex; /* Cambiado de block a flex */
+  align-items: center; /* Centra verticalmente */
+  justify-content: center; /* Centra horizontalmente */
 }
 
-/* Sección para mostrar la última imagen capturada */
-#last-captured {
-  margin-top: 20px;
+#send, #discard {
+  display: none;
+  border-radius: 8px;
+  min-width: 100px;
 }
 
-#last-captured img {
-  width: 100%;
-  max-width: 400px;
-  display: block;
-  margin: 0 auto;
+#send {
+  background: #4CAF50;
+  color: white;
+  order: 3;
 }
 
-/* Área de depuración */
+#discard {
+  background: #f44336;
+  color: white;
+  order: 1;
+}
+
+.button-container button:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
 #debug {
   margin-top: 20px;
   padding: 10px;

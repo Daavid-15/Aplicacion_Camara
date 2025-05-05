@@ -85,13 +85,14 @@ window.addEventListener("resize", updateOverlay);
 
 // Función para restablecer la vista:
 // Oculta la imagen, muestra el video, oculta los botones de enviar/descartar y vuelve a mostrar el botón de capturar.
+// Función para restablecer la vista
 function resetCameraState() {
   lastImage.src = "";
   lastImage.style.display = "none";
   video.style.display = "block";
   sendButton.style.display = "none";
   discardButton.style.display = "none";
-  captureButton.style.display = "inline-block";
+  captureButton.style.display = "flex";
   updateOverlay();
   debugLog("Volviendo a la vista de video");
 }
@@ -109,7 +110,6 @@ captureButton.addEventListener("click", async () => {
     let photoSettings = {
       imageWidth: 1920,   // Valor deseado: ajusta según tus necesidades o consulta las capacidades
       imageHeight: 1080,  // Valor deseado
-      fillLightMode: "flash"  // Ns si quitarlo de aquí
     };
     
     // Si el dispositivo soporta flash nativo, lo establecemos en los settings
@@ -118,18 +118,17 @@ captureButton.addEventListener("click", async () => {
       photoSettings.fillLightMode = "flash";
       debugLog("Configurar photoSettings con flash: " + JSON.stringify(photoSettings));
     }
-    /*
+  
     // Si no, pero existe la opción torch, lo activamos manualmente
     else if (capabilities.torch) {
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
         debugLog("Linterna activada manualmente");
-        // Nota: No se establece fillLightMode en photoSettings en este caso, ya que torch se controla vía constraints.
       } catch (err) {
         debugLog("Error al activar linterna: " + err);
       }
     }
-    */
+  
     // Ahora se captura la fotografía pasando los photoSettings deseados.
     const blob = await imageCapture.takePhoto(photoSettings);
     lastImage.src = URL.createObjectURL(blob);
@@ -146,9 +145,9 @@ captureButton.addEventListener("click", async () => {
     video.style.display = "none";
     lastImage.style.display = "block";
     
-    // Mostrar los botones de enviar y descartar, y ocultar el de capturar
-    sendButton.style.display = "inline-block";
-    discardButton.style.display = "inline-block";
+    // Mostrar los botones
+    sendButton.style.display = "block";
+    discardButton.style.display = "block";
     captureButton.style.display = "none";
     
     // Actualizar el overlay
