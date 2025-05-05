@@ -51,7 +51,7 @@ function initCamera() {
       // Mostrar todas las capacidades de la cámara
       const capabilities = track.getCapabilities();
       // Se utiliza JSON.stringify con formato de indentación para una lectura más cómoda
-      debugLog("Capacidades de la cámara:\n" + JSON.stringify(capabilities, null, 2));
+      //debugLog("Capacidades de la cámara:\n" + JSON.stringify(capabilities, null, 2));
       
     })
     .catch(error => debugLog("Error cámara: " + error));
