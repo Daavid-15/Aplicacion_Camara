@@ -10,7 +10,7 @@
         position: relative;
         max-width: 640px;
         margin: auto;
-        margin-bottom: 120px; /* Espacio para los botones */
+        border: 2px solid #020000;
       }
       #video,
       #lastImage {
@@ -34,6 +34,12 @@
       <video id="video" autoplay playsinline></video>
       <img id="lastImage" src="" alt="Imagen capturada" />
       <div class="green-overlay-video"></div>
+    </div>
+
+    <!-- Mensaje de advertencia -->
+    <div id="warning-message" class="hidden">
+      ⚠️ No se detectó acceso a Flash o Torch. Por favor, tome imágenes en condiciones de iluminación óptimas.
+      <button id="close-warning">Aceptar</button>
     </div>
     
     <!-- Botones fijos en la parte inferior -->

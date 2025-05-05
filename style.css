@@ -1,7 +1,8 @@
 body {
   font-family: Arial, sans-serif;
   text-align: center;
-  margin: 20px;
+  margin: 0; /* Elimina márgenes globales */
+  padding: 0; /* Elimina paddings globales */
 }
 
 /* Contenedor de botones fijo */
@@ -64,7 +65,7 @@ body {
 }
 
 #debug {
-  margin-top: 20px;
+  margin-top: 0; /* Elimina el margen superior */
   padding: 10px;
   border: 1px solid #ccc;
   text-align: left;
@@ -85,4 +86,57 @@ body {
   word-wrap: break-word; /* Forzar el cambio de línea */
   overflow-wrap: break-word; /* Compatibilidad adicional */
   white-space: pre-wrap; /* Mantener espacios y saltos de línea */
+}
+
+
+#warning-message {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: red;
+  font-weight: bold;
+  text-align: center;
+  padding: 15px;
+  background-color: #ffe6e6;
+  border: 1px solid red;
+  border-radius: 5px;
+  max-width: 90%;
+  z-index: 1000; /* Asegura que esté sobre otros elementos */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#warning-message button {
+  margin-top: 10px;
+  padding: 5px 10px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#warning-message button:hover {
+  background-color: darkred;
+}
+
+.hidden {
+  display: none;
+}
+
+.green-overlay-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid green;
+  pointer-events: none; /* Evita que interfiera con los clics */
+  display: none; /* Oculto por defecto */
+}
+
+#camera-container {
+  margin: 0 auto; /* Centrado sin márgenes adicionales */
+  padding: 0; /* Elimina cualquier padding */
+  position: relative; /* Asegura que los elementos hijos estén posicionados correctamente */
 }
