@@ -48,16 +48,15 @@ function initCamera() {
       const track = stream.getVideoTracks()[0];
       imageCapture = new ImageCapture(track);
       
-      // Mostrar capacidades de la cámara
+      // Mostrar todas las capacidades de la cámara
       const capabilities = track.getCapabilities();
-      debugLog("Cámara:" + JSON.stringify({
-        flash: capabilities.fillLightMode || 'no soportado',
-        torch: capabilities.torch ? 'soportado' : 'no soportado'
-      }));
+      // Se utiliza JSON.stringify con formato de indentación para una lectura más cómoda
+      debugLog("Capacidades de la cámara:\n" + JSON.stringify(capabilities, null, 2));
       
     })
     .catch(error => debugLog("Error cámara: " + error));
 }
+
 
 
 initCamera();
@@ -119,6 +118,7 @@ captureButton.addEventListener("click", async () => {
       photoSettings.fillLightMode = "flash";
       debugLog("Configurar photoSettings con flash: " + JSON.stringify(photoSettings));
     }
+    /*
     // Si no, pero existe la opción torch, lo activamos manualmente
     else if (capabilities.torch) {
       try {
@@ -129,7 +129,7 @@ captureButton.addEventListener("click", async () => {
         debugLog("Error al activar linterna: " + err);
       }
     }
-    
+    */
     // Ahora se captura la fotografía pasando los photoSettings deseados.
     const blob = await imageCapture.takePhoto(photoSettings);
     lastImage.src = URL.createObjectURL(blob);
