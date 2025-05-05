@@ -80,4 +80,9 @@ body {
 #debug ul {
   list-style: none;
   padding-left: 0;
+  max-height: 200px; /* Altura máxima del cuadro */
+  overflow-y: auto; /* Habilitar scroll vertical si es necesario */
+  word-wrap: break-word; /* Forzar el cambio de línea */
+  overflow-wrap: break-word; /* Compatibilidad adicional */
+  white-space: pre-wrap; /* Mantener espacios y saltos de línea */
 }
