@@ -49,7 +49,7 @@ function initCamera() {
       imageCapture = new ImageCapture(track);
       
       // Mostrar todas las capacidades de la cámara
-      const capabilities = track.getCapabilities();
+      //const capabilities = track.getCapabilities();
       // Se utiliza JSON.stringify con formato de indentación para una lectura más cómoda
       //debugLog("Capacidades de la cámara:\n" + JSON.stringify(capabilities, null, 2));
       
