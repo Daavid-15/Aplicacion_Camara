@@ -71,7 +71,7 @@ function updateOverlay() {
   
   // Tomar la dimensión menor y el 60% de esa dimensión
   const smaller = Math.min(width, height);
-  const size = smaller * 0.6;
+  const size = smaller * 0.85;
   
   // Configurar el overlay para que sea un cuadrado centrado
   const overlay = document.querySelector(".green-overlay-video");
@@ -110,10 +110,12 @@ captureButton.addEventListener("click", async () => {
     let photoSettings = {
       imageWidth: 1920,   // Valor deseado: ajusta según tus necesidades o consulta las capacidades
       imageHeight: 1080,  // Valor deseado
+      fillLightMode: "flash"  // Ns si quitarlo de aquí
     };
     
     // Si el dispositivo soporta flash nativo, lo establecemos en los settings
     if (capabilities.fillLightMode && capabilities.fillLightMode.includes("flash")) {
+
       photoSettings.fillLightMode = "flash";
       debugLog("Configurar photoSettings con flash: " + JSON.stringify(photoSettings));
     }
