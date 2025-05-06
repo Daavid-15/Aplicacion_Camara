@@ -9,15 +9,48 @@ const overlayElement = document.querySelector('.green-overlay');
 
 const cameraConfig = {
     resolution: {
-        width: { exact: 1080 },  // Modo vertical
+        width: { exact: 1080 },
         height: { exact: 1920 },
-        aspectRatio: { exact: 9/16 }
+        aspectRatio: 9/16
     },
     torch: {
-        warmup: 600,    // Tiempo de activación
-        cooldown: 400   // Tiempo de desactivación
+        warmup: 600,
+        cooldown: 400
     }
 };
+
+// Función de envío recuperada y mejorada
+async function sendPhoto() {
+    if (!currentCapture) {
+        logEvent('Error: No hay imagen para enviar');
+        return;
+    }
+
+    try {
+        const response = await fetch(currentCapture);
+        const blob = await response.blob();
+        
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        // Endpoint real (reemplazar)
+        await fetch('TU_ENDPOINT_AQUI', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 })
+        });
+        
+        logEvent('Imagen enviada exitosamente');
+        resetInterface();
+
+    } catch (error) {
+        logEvent(`Error en envío: ${error.message}`);
+    }
+}
 
 async function initializeCamera() {
     try {
@@ -31,95 +64,102 @@ async function initializeCamera() {
         videoElement.srcObject = cameraStream;
         captureInterface = new ImageCapture(cameraStream.getVideoTracks()[0]);
         
-        videoElement.addEventListener('loadedmetadata', () => {
-            updateOverlayPosition();
+        videoElement.onloadedmetadata = () => {
+            adjustContainerSize();
             checkHardwareCapabilities();
-            logEvent('Cámara lista - Modo vertical');
-        });
-        
-        window.addEventListener('resize', updateOverlayPosition);
-        
+            logEvent('Cámara vertical inicializada');
+        };
+
     } catch (error) {
-        handleCameraError(error);
+        logEvent(`Error de cámara: ${error.message}`);
     }
 }
 
-function updateOverlayPosition() {
+function adjustContainerSize() {
     const container = document.getElementById('camera-container');
-    const containerRect = container.getBoundingClientRect();
+    const videoRatio = cameraConfig.resolution.width.exact / cameraConfig.resolution.height.exact;
     
-    // Calcular 85% de la dimensión más pequeña
-    const minDimension = Math.min(containerRect.width, containerRect.height);
-    const overlaySize = minDimension * 0.85;
+    // Forzar tamaño vertical
+    container.style.width = `${window.innerWidth * 0.9}px`;
+    container.style.height = `${window.innerWidth * 1.777}px`;
+    updateOverlay();
+}
+
+function updateOverlay() {
+    const container = document.getElementById('camera-container');
+    const containerWidth = container.offsetWidth;
+    const overlaySize = containerWidth * 0.85;
     
     overlayElement.style.width = `${overlaySize}px`;
-    overlayElement.style.height = `${overlaySize}px`;
+    overlayElement.style.height = `${overlaySize * 1.777}px`;
 }
 
 async function captureImage() {
-    const captureButton = document.getElementById('capture');
-    let videoTrack;
+    const track = cameraStream.getVideoTracks()[0];
     
     try {
-        captureButton.disabled = true;
-        videoTrack = cameraStream.getVideoTracks()[0];
+        document.getElementById('capture').disabled = true;
         
-        // Manejo de linterna
-        if (videoTrack.getCapabilities().torch) {
-            await videoTrack.applyConstraints({ advanced: [{ torch: true }] });
+        // Activación de linterna
+        if (track.getCapabilities().torch) {
+            await track.applyConstraints({ advanced: [{ torch: true }] });
             await new Promise(r => setTimeout(r, cameraConfig.torch.warmup));
             isTorchActive = true;
         }
 
-        // Captura con resolución vertical
+        // Captura vertical
         const photoBlob = await captureInterface.takePhoto({
             imageWidth: 1080,
             imageHeight: 1920
         });
         
-        // Actualizar vista
+        // Mostrar imagen
         if (currentCapture) URL.revokeObjectURL(currentCapture);
         currentCapture = URL.createObjectURL(photoBlob);
-        showCapturedImage();
-        
+        showPreview();
+
     } catch (error) {
-        logEvent(`Error en captura: ${error.message}`);
+        logEvent(`Error de captura: ${error.message}`);
     } finally {
-        await handleTorchDeactivation(videoTrack);
-        captureButton.disabled = false;
+        // Desactivación garantizada
+        if (track.getCapabilities().torch && isTorchActive) {
+            await new Promise(r => setTimeout(r, cameraConfig.torch.cooldown));
+            await track.applyConstraints({ advanced: [{ torch: false }] });
+            isTorchActive = false;
+        }
+        document.getElementById('capture').disabled = false;
     }
 }
 
-function showCapturedImage() {
+function showPreview() {
     captureElement.src = currentCapture;
-    videoElement.style.opacity = '0';
-    
-    setTimeout(() => {
-        videoElement.style.display = 'none';
-        captureElement.style.display = 'block';
-        videoElement.style.opacity = '1';
-    }, 300);
-    
-    logEvent('Foto capturada - 1080x1920px');
+    videoElement.style.display = 'none';
+    captureElement.style.display = 'block';
+    document.getElementById('send').style.display = 'inline-block';
 }
 
-async function handleTorchDeactivation(track) {
-    if (track?.getCapabilities().torch && isTorchActive) {
-        await new Promise(r => setTimeout(r, cameraConfig.torch.cooldown));
-        await track.applyConstraints({ advanced: [{ torch: false }] });
-        isTorchActive = false;
-    }
+function resetInterface() {
+    videoElement.style.display = 'block';
+    captureElement.style.display = 'none';
+    document.getElementById('send').style.display = 'none';
+    if (currentCapture) URL.revokeObjectURL(currentCapture);
+    currentCapture = null;
 }
 
-function checkHardwareCapabilities() {
-    const track = cameraStream.getVideoTracks()[0];
-    const warningElement = document.getElementById('warning-message');
-    
-    if (!track.getCapabilities().torch) {
-        warningElement.classList.remove('hidden');
-        logEvent('Advertencia: Linterna no disponible');
-    }
-}
+// Event Listeners
+document.getElementById('capture').addEventListener('click', captureImage);
+document.getElementById('discard').addEventListener('click', resetInterface);
+document.getElementById('send').addEventListener('click', sendPhoto);
+document.getElementById('close-warning').addEventListener('click', () => {
+    document.getElementById('warning-message').classList.add('hidden');
+});
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', initializeCamera);
+window.addEventListener('resize', () => {
+    adjustContainerSize();
+    updateOverlay();
+});
 
 // Utilidades
 function logEvent(message) {
@@ -128,25 +168,3 @@ function logEvent(message) {
     document.getElementById('log-list').appendChild(logEntry);
     console.log(message);
 }
-
-// Manejadores de eventos
-document.getElementById('capture').addEventListener('click', captureImage);
-document.getElementById('discard').addEventListener('click', () => {
-    captureElement.style.display = 'none';
-    videoElement.style.display = 'block';
-    URL.revokeObjectURL(currentCapture);
-    currentCapture = null;
-});
-
-document.getElementById('close-warning').addEventListener('click', () => {
-    document.getElementById('warning-message').classList.add('hidden');
-});
-
-// Inicialización y limpieza
-document.addEventListener('DOMContentLoaded', initializeCamera);
-window.addEventListener('beforeunload', () => {
-    cameraStream?.getTracks().forEach(track => {
-        track.stop();
-        logEvent('Recursos de cámara liberados');
-    });
-});
