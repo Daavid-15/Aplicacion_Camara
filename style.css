@@ -1,75 +1,64 @@
 :root {
-  --color-primary: #27ae60;
-  --color-danger: #c0392b;
-  --color-warning: #f39c12;
+  --color-primary: #2ecc71;
+  --color-danger: #e74c3c;
+  --color-warning: #f1c40f;
 }
 
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Segoe UI', system-ui, sans-serif;
   margin: 0;
   padding: 20px;
   background: #2c3e50;
-  color: #ecf0f1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 100vh;
+  color: white;
 }
 
 #camera-container {
   position: relative;
-  width: 90%;
-  max-width: 360px;
-  height: 640px;
+  max-width: 800px;
   margin: 20px auto;
-  background: #000;
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  background: #000;
+  aspect-ratio: 16/9;
 }
 
 #video, #lastImage {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Cambiado a contain para evitar zoom */
-  transform: none;
+  object-fit: cover;
+  transform: scaleX(-1);
 }
 
 .green-overlay {
   position: absolute;
-  border: 4px solid var(--color-primary);
-  width: 85vmin;
-  height: 85vmin;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  border: 3px solid var(--color-primary);
+  border-radius: 8px;
   pointer-events: none;
   box-sizing: border-box;
-  border-radius: 8px;
-  opacity: 0.7;
+  aspect-ratio: 16/9;
 }
 
 .button-bar {
   position: fixed;
-  bottom: 20px;
-  width: 90%;
-  max-width: 400px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 15px;
-  background: rgba(0, 0, 0, 0.9);
-  border-radius: 25px;
-  display: flex;
-  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(10px);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 15px;
+  align-items: center;
 }
 
 button {
   border: none;
-  padding: 12px 25px;
-  border-radius: 20px;
-  font-weight: 500;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 14px;
 }
 
 #capture {
@@ -77,26 +66,17 @@ button {
   color: white;
   width: 60px;
   height: 60px;
-  border-radius: 50%;
-  margin: 0 20px;
+  justify-self: center;
 }
 
-#discard { 
-  background: var(--color-danger);
-  color: white;
-}
-
-#send { 
-  background: var(--color-primary);
-  color: white;
-}
+#discard { background: var(--color-danger); }
+#send { background: var(--color-primary); }
 
 #debug-console {
-  width: 90%;
-  max-width: 400px;
+  max-width: 800px;
   margin: 20px auto;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
   padding: 15px;
 }
 

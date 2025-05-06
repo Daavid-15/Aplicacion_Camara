@@ -7,15 +7,16 @@ const videoElement = document.getElementById('video');
 const captureElement = document.getElementById('lastImage');
 const overlayElement = document.querySelector('.green-overlay');
 
-const cameraConfig = {
+// Configuración de cámara
+const cameraSettings = {
     resolution: {
-        width: { exact: 1080 },
-        height: { exact: 1920 },
-        aspectRatio: 9/16
+        width: { exact: 1920 },
+        height: { exact: 1080 },
+        aspectRatio: { exact: 16/9 }
     },
-    torch: {
-        warmup: 600,
-        cooldown: 400
+    torchConfig: {
+        activationDelay: 500,
+        deactivationDelay: 300
     }
 };
 
@@ -24,7 +25,7 @@ async function initializeCamera() {
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: "environment",
-                ...cameraConfig.resolution
+                ...cameraSettings.resolution
             }
         });
         
@@ -32,124 +33,83 @@ async function initializeCamera() {
         captureInterface = new ImageCapture(cameraStream.getVideoTracks()[0]);
         
         videoElement.addEventListener('loadedmetadata', () => {
-            adjustContainerSize();
-            updateOverlay();
-            checkHardwareCapabilities();
-            logEvent('Cámara lista - Modo vertical');
+            updateOverlayDimensions();
+            setupTorchHandler();
         });
         
-        window.addEventListener('resize', () => {
-            adjustContainerSize();
-            updateOverlay();
-        });
+        window.addEventListener('resize', updateOverlayDimensions);
         
     } catch (error) {
-        logEvent(`Error de cámara: ${error.message}`);
+        logEvent(`Error de inicialización: ${error.message}`);
+        alert('Error al acceder a la cámara');
     }
 }
 
-function adjustContainerSize() {
+function updateOverlayDimensions() {
     const container = document.getElementById('camera-container');
-    const aspectRatio = cameraConfig.resolution.width.exact / cameraConfig.resolution.height.exact;
-    container.style.height = `${container.offsetWidth / aspectRatio}px`;
-}
-
-function updateOverlay() {
-    const container = document.getElementById('camera-container');
-    const minDimension = Math.min(container.offsetWidth, container.offsetHeight);
-    const overlaySize = minDimension * 0.85;
+    const [width, height] = [container.offsetWidth, container.offsetHeight];
     
-    overlayElement.style.width = `${overlaySize}px`;
-    overlayElement.style.height = `${overlaySize}px`;
+    overlayElement.style.width = `${width * 0.9}px`;
+    overlayElement.style.height = `${height * 0.9}px`;
+    overlayElement.style.left = `${width * 0.05}px`;
+    overlayElement.style.top = `${height * 0.05}px`;
 }
 
 async function captureImage() {
-    const track = cameraStream.getVideoTracks()[0];
-    
+    let captureTrack;
     try {
         document.getElementById('capture').disabled = true;
+        captureTrack = cameraStream.getVideoTracks()[0];
         
-        if (track.getCapabilities().torch) {
-            await track.applyConstraints({ advanced: [{ torch: true }] });
-            await new Promise(r => setTimeout(r, cameraConfig.torch.warmup));
+        // Activar torch si está disponible
+        if (captureTrack.getCapabilities().torch) {
+            await captureTrack.applyConstraints({
+                advanced: [{ torch: true }]
+            });
+            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.activationDelay));
             isTorchActive = true;
         }
 
-        const photoBlob = await captureInterface.takePhoto({
-            imageWidth: 1080,
-            imageHeight: 1920
+        // Captura con configuración precisa
+        const photo = await captureInterface.takePhoto({
+            imageWidth: cameraSettings.resolution.width.exact,
+            imageHeight: cameraSettings.resolution.height.exact
         });
         
+        // Actualizar vista
         if (currentCapture) URL.revokeObjectURL(currentCapture);
-        currentCapture = URL.createObjectURL(photoBlob);
-        showPreview();
-
+        currentCapture = URL.createObjectURL(photo);
+        captureElement.src = currentCapture;
+        
+        // Transición suave
+        videoElement.style.opacity = '0';
+        setTimeout(() => {
+            videoElement.style.display = 'none';
+            captureElement.style.display = 'block';
+            videoElement.style.opacity = '1';
+        }, 300);
+        
     } catch (error) {
-        logEvent(`Error de captura: ${error.message}`);
+        logEvent(`Error en captura: ${error.message}`);
     } finally {
-        if (track.getCapabilities().torch && isTorchActive) {
-            await new Promise(r => setTimeout(r, cameraConfig.torch.cooldown));
-            await track.applyConstraints({ advanced: [{ torch: false }] });
+        // Desactivar torch garantizado
+        if (captureTrack?.getCapabilities().torch && isTorchActive) {
+            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.deactivationDelay));
+            await captureTrack.applyConstraints({ advanced: [{ torch: false }] });
             isTorchActive = false;
         }
         document.getElementById('capture').disabled = false;
     }
 }
 
-function showPreview() {
-    captureElement.src = currentCapture;
-    videoElement.style.display = 'none';
-    captureElement.style.display = 'block';
-    document.getElementById('send').style.display = 'inline-block';
-}
-
-async function sendPhoto() {
-    try {
-        const response = await fetch(currentCapture);
-        const blob = await response.blob();
-        
-        const reader = new FileReader();
-        const base64 = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-
-        await fetch('TU_ENDPOINT_AQUI', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64 })
-        });
-        
-        logEvent('Imagen enviada exitosamente');
-        resetInterface();
-
-    } catch (error) {
-        logEvent(`Error en envío: ${error.message}`);
+function setupTorchHandler() {
+    const track = cameraStream.getVideoTracks()[0];
+    const torchSupported = track.getCapabilities().torch;
+    
+    if (!torchSupported) {
+        document.getElementById('warning-message').classList.remove('hidden');
     }
 }
-
-function resetInterface() {
-    videoElement.style.display = 'block';
-    captureElement.style.display = 'none';
-    document.getElementById('send').style.display = 'none';
-    if (currentCapture) URL.revokeObjectURL(currentCapture);
-    currentCapture = null;
-}
-
-// Event Listeners
-document.getElementById('capture').addEventListener('click', captureImage);
-document.getElementById('discard').addEventListener('click', resetInterface);
-document.getElementById('send').addEventListener('click', sendPhoto);
-document.getElementById('close-warning').addEventListener('click', () => {
-    document.getElementById('warning-message').classList.add('hidden');
-});
-
-// Inicialización
-document.addEventListener('DOMContentLoaded', initializeCamera);
-window.addEventListener('beforeunload', () => {
-    cameraStream?.getTracks().forEach(track => track.stop());
-});
 
 // Utilidades
 function logEvent(message) {
@@ -159,9 +119,21 @@ function logEvent(message) {
     console.log(message);
 }
 
-function checkHardwareCapabilities() {
-    const track = cameraStream.getVideoTracks()[0];
-    if (!track.getCapabilities().torch) {
-        document.getElementById('warning-message').classList.remove('hidden');
-    }
-}
+// Event handlers
+document.getElementById('capture').addEventListener('click', captureImage);
+document.getElementById('discard').addEventListener('click', () => {
+    captureElement.style.display = 'none';
+    videoElement.style.display = 'block';
+    URL.revokeObjectURL(currentCapture);
+    currentCapture = null;
+});
+
+document.getElementById('close-warning').addEventListener('click', () => {
+    document.getElementById('warning-message').classList.add('hidden');
+});
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', initializeCamera);
+window.addEventListener('beforeunload', () => {
+    cameraStream?.getTracks().forEach(track => track.stop());
+});
