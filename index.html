@@ -3,32 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cámara Portátil</title>
+    <title>Cámara Inteligente</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Cámara Portátil</h1>
+    <h1>Cámara Inteligente</h1>
     
     <div id="camera-container">
         <video id="video" autoplay playsinline></video>
-        <img id="lastImage" src="" alt="Imagen capturada">
-        <div class="green-overlay-video"></div>
+        <img id="lastImage" src="" alt="Captura">
+        <div class="green-overlay"></div>
     </div>
 
     <div id="warning-message" class="hidden">
-        ⚠️ No se detectó acceso a Flash o Torch. Tome imágenes con buena iluminación.
-        <button id="close-warning">Aceptar</button>
+        ⚠️ Iluminación insuficiente - Active el flash manualmente
+        <button id="close-warning">Entendido</button>
     </div>
     
-    <div class="button-container">
-        <button id="discard">Descartar</button>
-        <button id="capture">Foto</button>
-        <button id="send">Enviar</button>
+    <div class="button-bar">
+        <button id="discard">↺ Descartar</button>
+        <button id="capture">⦿ Capturar</button>
+        <button id="send">↑ Enviar</button>
     </div>
     
-    <div id="debug">
-        <h3>Mensajes de Depuración</h3>
-        <ul id="debugList"></ul>
+    <div id="debug-console">
+        <h3>Registro de actividad</h3>
+        <ul id="log-list"></ul>
     </div>
 
     <script src="script.js"></script>

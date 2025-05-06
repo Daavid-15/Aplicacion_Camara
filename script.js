@@ -1,186 +1,139 @@
-// Variables globales
-let stream = null;
-let imageCapture = null;
-let currentBlobUrl = null;
-const video = document.getElementById('video');
-const lastImage = document.getElementById('lastImage');
-const captureButton = document.getElementById('capture');
-const sendButton = document.getElementById('send');
-const discardButton = document.getElementById('discard');
+let cameraStream = null;
+let captureInterface = null;
+let currentCapture = null;
+let isTorchActive = false;
 
-// Debugging
-function debugLog(message) {
-    const now = new Date().toLocaleTimeString();
-    const li = document.createElement('li');
-    li.textContent = `[${now}] ${message}`;
-    document.getElementById('debugList').appendChild(li);
-    console.log(message);
-}
+const videoElement = document.getElementById('video');
+const captureElement = document.getElementById('lastImage');
+const overlayElement = document.querySelector('.green-overlay');
 
-// Inicialización de cámara
-async function initCamera() {
+// Configuración de cámara
+const cameraSettings = {
+    resolution: {
+        width: { exact: 1920 },
+        height: { exact: 1080 },
+        aspectRatio: { exact: 16/9 }
+    },
+    torchConfig: {
+        activationDelay: 500,
+        deactivationDelay: 300
+    }
+};
+
+async function initializeCamera() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        cameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: "environment",
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
+                ...cameraSettings.resolution
             }
         });
         
-        video.srcObject = stream;
-        imageCapture = new ImageCapture(stream.getVideoTracks()[0]);
+        videoElement.srcObject = cameraStream;
+        captureInterface = new ImageCapture(cameraStream.getVideoTracks()[0]);
         
-        video.addEventListener('loadedmetadata', () => {
-            updateOverlay();
-            checkFlashCapabilities();
-            debugLog(`Cámara iniciada - Resolución: ${video.videoWidth}x${video.videoHeight}`);
+        videoElement.addEventListener('loadedmetadata', () => {
+            updateOverlayDimensions();
+            setupTorchHandler();
         });
-
-        window.addEventListener('resize', updateOverlay);
+        
+        window.addEventListener('resize', updateOverlayDimensions);
         
     } catch (error) {
-        debugLog(`Error de cámara: ${error.message}`);
-        alert('Error al acceder a la cámara. Revise los permisos.');
+        logEvent(`Error de inicialización: ${error.message}`);
+        alert('Error al acceder a la cámara');
     }
 }
 
-// Gestión de overlay
-function updateOverlay() {
+function updateOverlayDimensions() {
     const container = document.getElementById('camera-container');
-    const overlay = document.querySelector('.green-overlay-video');
-    const rect = container.getBoundingClientRect();
+    const [width, height] = [container.offsetWidth, container.offsetHeight];
     
-    const size = Math.min(rect.width, rect.height) * 0.8;
-    overlay.style.width = `${size}px`;
-    overlay.style.height = `${size}px`;
-    overlay.style.left = `${(rect.width - size) / 2}px`;
-    overlay.style.top = `${(rect.height - size) / 2}px`;
-    overlay.style.display = 'block';
+    overlayElement.style.width = `${width * 0.9}px`;
+    overlayElement.style.height = `${height * 0.9}px`;
+    overlayElement.style.left = `${width * 0.05}px`;
+    overlayElement.style.top = `${height * 0.05}px`;
 }
 
-// Captura de foto
-captureButton.addEventListener('click', async () => {
+async function captureImage() {
+    let captureTrack;
     try {
-        captureButton.disabled = true;
-        debugLog('Iniciando captura...');
+        document.getElementById('capture').disabled = true;
+        captureTrack = cameraStream.getVideoTracks()[0];
         
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-        const photoSettings = {
-            imageWidth: capabilities.width?.max || 1920,
-            imageHeight: capabilities.height?.max || 1080,
-            fillLightMode: 'auto'
-        };
-
-        // Manejo de iluminación
-        if (capabilities.fillLightMode?.includes('flash')) {
-            photoSettings.fillLightMode = 'flash';
-            debugLog('Flash activado');
-        } else if (capabilities.torch) {
-            await track.applyConstraints({ advanced: [{ torch: true }] });
-            await new Promise(resolve => setTimeout(resolve, 300));
+        // Activar torch si está disponible
+        if (captureTrack.getCapabilities().torch) {
+            await captureTrack.applyConstraints({
+                advanced: [{ torch: true }]
+            });
+            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.activationDelay));
+            isTorchActive = true;
         }
 
-        // Captura y actualización
-        const blob = await imageCapture.takePhoto(photoSettings);
-        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        // Captura con configuración precisa
+        const photo = await captureInterface.takePhoto({
+            imageWidth: cameraSettings.resolution.width.exact,
+            imageHeight: cameraSettings.resolution.height.exact
+        });
         
-        currentBlobUrl = URL.createObjectURL(blob);
-        lastImage.src = currentBlobUrl;
-        lastImage.style.display = 'block';
-        video.style.display = 'none';
+        // Actualizar vista
+        if (currentCapture) URL.revokeObjectURL(currentCapture);
+        currentCapture = URL.createObjectURL(photo);
+        captureElement.src = currentCapture;
         
-        sendButton.style.display = 'block';
-        discardButton.style.display = 'block';
-        captureButton.style.display = 'none';
-        document.querySelector('.green-overlay-video').style.display = 'none';
-
-        debugLog(`Foto capturada: ${blob.size} bytes`);
-
+        // Transición suave
+        videoElement.style.opacity = '0';
+        setTimeout(() => {
+            videoElement.style.display = 'none';
+            captureElement.style.display = 'block';
+            videoElement.style.opacity = '1';
+        }, 300);
+        
     } catch (error) {
-        debugLog(`Error en captura: ${error.message}`);
+        logEvent(`Error en captura: ${error.message}`);
     } finally {
-        const track = stream?.getVideoTracks()[0];
-        if (track?.getCapabilities().torch) {
-            await track.applyConstraints({ advanced: [{ torch: false }] });
+        // Desactivar torch garantizado
+        if (captureTrack?.getCapabilities().torch && isTorchActive) {
+            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.deactivationDelay));
+            await captureTrack.applyConstraints({ advanced: [{ torch: false }] });
+            isTorchActive = false;
         }
-        captureButton.disabled = false;
+        document.getElementById('capture').disabled = false;
     }
-});
-
-// Gestión de estado
-function resetUI() {
-    if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-        currentBlobUrl = null;
-    }
-    
-    lastImage.src = '';
-    lastImage.style.display = 'none';
-    video.style.display = 'block';
-    
-    sendButton.style.display = 'none';
-    discardButton.style.display = 'none';
-    captureButton.style.display = 'flex';
-    
-    document.querySelector('.green-overlay-video').style.display = 'block';
-    debugLog('Estado reiniciado');
 }
 
-// Envío de imagen
-sendButton.addEventListener('click', async () => {
-    try {
-        if (!currentBlobUrl) return;
-        
-        debugLog('Convirtiendo imagen...');
-        const response = await fetch(currentBlobUrl);
-        const blob = await response.blob();
-        
-        const reader = new FileReader();
-        const base64 = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-
-        debugLog('Enviando al servidor...');
-        await fetch('TU_ENDPOINT_AQUI', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64 })
-        });
-        
-        debugLog('¡Imagen enviada!');
-        resetUI();
-
-    } catch (error) {
-        debugLog(`Error en envío: ${error.message}`);
+function setupTorchHandler() {
+    const track = cameraStream.getVideoTracks()[0];
+    const torchSupported = track.getCapabilities().torch;
+    
+    if (!torchSupported) {
+        document.getElementById('warning-message').classList.remove('hidden');
     }
+}
+
+// Utilidades
+function logEvent(message) {
+    const logEntry = document.createElement('li');
+    logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    document.getElementById('log-list').appendChild(logEntry);
+    console.log(message);
+}
+
+// Event handlers
+document.getElementById('capture').addEventListener('click', captureImage);
+document.getElementById('discard').addEventListener('click', () => {
+    captureElement.style.display = 'none';
+    videoElement.style.display = 'block';
+    URL.revokeObjectURL(currentCapture);
+    currentCapture = null;
 });
 
-// Eventos adicionales
-discardButton.addEventListener('click', resetUI);
 document.getElementById('close-warning').addEventListener('click', () => {
     document.getElementById('warning-message').classList.add('hidden');
 });
 
-// Verificación de hardware
-function checkFlashCapabilities() {
-    if (!stream) return;
-    
-    const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities();
-    const warning = document.getElementById('warning-message');
-    
-    if (!capabilities.fillLightMode && !capabilities.torch) {
-        warning.classList.remove('hidden');
-        debugLog('Advertencia: Sin soporte para flash/torch');
-    }
-}
-
-// Inicio
-document.addEventListener('DOMContentLoaded', initCamera);
+// Inicialización
+document.addEventListener('DOMContentLoaded', initializeCamera);
 window.addEventListener('beforeunload', () => {
-    if (stream) stream.getTracks().forEach(track => track.stop());
+    cameraStream?.getTracks().forEach(track => track.stop());
 });
