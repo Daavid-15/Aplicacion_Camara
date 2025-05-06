@@ -98,33 +98,57 @@ function resetCameraState() {
   debugLog("Volviendo a la vista de video");
 }
 
-// Evento para capturar una foto
+// Evento para capturar una foto con flash (torch) si es posible
 captureButton.addEventListener("click", async () => {
-  debugLog("Capturando imagen...");
+  debugLog("Capturando imagen ...");
 
   try {
     const track = stream.getVideoTracks()[0];
-    const blob = await imageCapture.takePhoto(); // Captura la foto
-    lastImage.src = URL.createObjectURL(blob); // Muestra la foto capturada
+    const capabilities = track.getCapabilities();
+    const settings = track.getSettings();
+    // Forzar la resolución de la imagen a la del video
+    const width = settings.width || video.videoWidth;
+    const height = settings.height || video.videoHeight;
+    const photoSettings = { imageWidth: width, imageHeight: height };
+    let blob;
 
-    // Cambia la vista para mostrar la imagen capturada
+    if (capabilities.fillLightMode && capabilities.fillLightMode.includes("flash")) {
+      // Si soporta flash mediante fillLightMode, úsalo
+      photoSettings.fillLightMode = "flash";
+      blob = await imageCapture.takePhoto(photoSettings);
+    }
+    else if (capabilities.torch) {
+      // Si el dispositivo soporta torch, actívalo
+      await track.applyConstraints({ advanced: [{ torch: true }] });
+      // Espera un breve instante para asegurar que el torch se encienda
+      await new Promise(resolve => setTimeout(resolve, 100));
+      blob = await imageCapture.takePhoto(photoSettings);
+      // Apaga el torch después de tomar la foto
+      await track.applyConstraints({ advanced: [{ torch: false }] });
+    } 
+    else {
+      // En caso de que no se disponga de flash o torch, toma la foto normalmente
+      blob = await imageCapture.takePhoto(photoSettings);
+    }
+    
+    // Muestra la imagen capturada y ajusta la vista
+    lastImage.src = URL.createObjectURL(blob);
     video.style.display = "none";
     lastImage.style.display = "block";
-
-    // Muestra los botones de enviar y descartar
     sendButton.style.display = "block";
     discardButton.style.display = "block";
     captureButton.style.display = "none";
-
+    
     // Oculta el overlay verde
     const overlay = document.querySelector(".green-overlay-video");
     overlay.style.display = "none";
-
-    debugLog("Foto capturada y mostrada.");
+    
+    debugLog("Foto capturada y flash/torch desactivado.");
   } catch (error) {
     debugLog("Error en captura: " + error);
   }
 });
+
 
 // Función para enviar la imagen capturada al back-end
 function sendPhoto() {
