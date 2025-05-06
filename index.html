@@ -1,53 +1,36 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cámara Portátil</title>
-    <link rel="stylesheet" href="style.css" />
-    <style>
-      #camera-container {
-        position: relative;
-        max-width: 640px;
-        margin: auto;
-        margin-bottom: 120px; /* Espacio para los botones */
-      }
-      #video,
-      #lastImage {
-        width: 100%;
-        height: auto;
-        object-fit: contain;
-      }
-      .green-overlay-video {
-        position: absolute;
-        border: 2px solid green;
-      }
-      #lastImage {
-        display: none;
-      }
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
     <h1>Cámara Portátil</h1>
     
     <div id="camera-container">
-      <video id="video" autoplay playsinline></video>
-      <img id="lastImage" src="" alt="Imagen capturada" />
-      <div class="green-overlay-video"></div>
+        <video id="video" autoplay playsinline></video>
+        <img id="lastImage" src="" alt="Imagen capturada">
+        <div class="green-overlay-video"></div>
+    </div>
+
+    <div id="warning-message" class="hidden">
+        ⚠️ No se detectó acceso a Flash o Torch. Tome imágenes con buena iluminación.
+        <button id="close-warning">Aceptar</button>
     </div>
     
-    <!-- Botones fijos en la parte inferior -->
     <div class="button-container">
-      <button id="discard">Descartar</button>
-      <button id="capture">Foto</button>
-      <button id="send">Enviar Imagen</button>
+        <button id="discard">Descartar</button>
+        <button id="capture">Foto</button>
+        <button id="send">Enviar</button>
     </div>
     
     <div id="debug">
-      <h3>Mensajes de Depuración</h3>
-      <ul id="debugList"></ul>
+        <h3>Mensajes de Depuración</h3>
+        <ul id="debugList"></ul>
     </div>
-    
+
     <script src="script.js"></script>
-  </body>
+</body>
 </html>
