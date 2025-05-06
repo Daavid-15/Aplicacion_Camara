@@ -103,60 +103,84 @@ captureButton.addEventListener("click", async () => {
 
   try {
     const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities();
-    const settings = track.getSettings();
-    // Forzar la resolución de la imagen a la del video
-    const width = settings.width || video.videoWidth;
-    const height = settings.height || video.videoHeight;
+
+    // Intenta obtener las capacidades fotográficas para conocer las dimensiones disponibles
+    let photoCapabilities;
+    try {
+      photoCapabilities = await imageCapture.getPhotoCapabilities();
+    } catch (err) {
+      debugLog("No se pudieron obtener las capacidades fotográficas: " + err);
+    }
+
+    // Selecciona el ancho y alto ideales basados en las capacidades de la cámara, 
+    // o bien se utiliza la configuración actual del track o del elemento video como respaldo.
+    const width =
+      (photoCapabilities &&
+        photoCapabilities.imageWidth &&
+        photoCapabilities.imageWidth.max) ||
+      track.getSettings().width ||
+      video.videoWidth;
+    const height =
+      (photoCapabilities &&
+        photoCapabilities.imageHeight &&
+        photoCapabilities.imageHeight.max) ||
+      track.getSettings().height ||
+      video.videoHeight;
     const photoSettings = { imageWidth: width, imageHeight: height };
+
     let blob;
 
-    if (capabilities.fillLightMode && capabilities.fillLightMode.includes("flash")) {
-      // Usa flash mediante fillLightMode
+    if (
+      photoCapabilities &&
+      photoCapabilities.fillLightMode &&
+      photoCapabilities.fillLightMode.includes("flash")
+    ) {
+      // Si se detecta soporte para flash mediante fillLightMode, se lo especifica
       photoSettings.fillLightMode = "flash";
       blob = await imageCapture.takePhoto(photoSettings);
-    } else if (capabilities.torch) {
-      // Usa torch y asegúrate de desactivarlo
+    } else if (track.getCapabilities().torch) {
+      // Si se soporta torch, se activa y se asegura su desactivación en un bloque finally
       try {
         await track.applyConstraints({ advanced: [{ torch: true }] });
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Se añade un pequeño retraso para garantizar que el torch tenga tiempo para encenderse
+        await new Promise((resolve) => setTimeout(resolve, 150));
         blob = await imageCapture.takePhoto(photoSettings);
       } finally {
-        await track.applyConstraints({ advanced: [{ torch: false }] });
+        // Se intenta desactivar el torch de forma robusta:
+        try {
+          await track.applyConstraints({ advanced: [{ torch: false }] });
+          debugLog("Torch desactivado (primera tentativa).");
+        } catch (err) {
+          debugLog("Error al desactivar torch en primera tentativa: " + err);
+        }
+        // Se agrega un breve retraso y se vuelve a aplicar la desactivación para mayor seguridad
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        try {
+          await track.applyConstraints({ advanced: [{ torch: false }] });
+          debugLog("Torch desactivado (segunda tentativa).");
+        } catch (err) {
+          debugLog("Error al desactivar torch en segunda tentativa: " + err);
+        }
       }
     } else {
-      // Captura normal
+      // Si no se dispone de flash ni torch, se toma la foto normalmente
       blob = await imageCapture.takePhoto(photoSettings);
     }
-    
-    // Redimensiona la imagen usando canvas para igualar el tamaño del video
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      // Forzamos el canvas a las mismas dimensiones del video
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      // Dibujamos la imagen en el canvas escalada a las dimensiones indicadas
-      ctx.drawImage(img, 0, 0, width, height);
-      // Asigna el resultado convertido a Data URL al elemento <img>
-      lastImage.src = canvas.toDataURL();
-      
-      // Actualiza la vista
-      video.style.display = "none";
-      lastImage.style.display = "block";
-      sendButton.style.display = "block";
-      discardButton.style.display = "block";
-      captureButton.style.display = "none";
-      
-      // Oculta el overlay verde
-      const overlay = document.querySelector(".green-overlay-video");
-      overlay.style.display = "none";
-      
-      debugLog("Foto capturada (redimensionada) y flash/torch desactivado.");
-    };
-    img.src = URL.createObjectURL(blob);
-    
+
+    // Muestra la imagen capturada y ajusta la vista
+    lastImage.src = URL.createObjectURL(blob);
+    video.style.display = "none";
+    lastImage.style.display = "block";
+    sendButton.style.display = "block";
+    discardButton.style.display = "block";
+    captureButton.style.display = "none";
+
+    // Oculta el overlay verde
+    const overlay = document.querySelector(".green-overlay-video");
+    overlay.style.display = "none";
+
+    debugLog("Foto capturada. Dimensiones: " + width + "x" + height);
+    debugLog("Flash/torch desactivado.");
   } catch (error) {
     debugLog("Error en captura: " + error);
   }
