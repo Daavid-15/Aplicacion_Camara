@@ -1,36 +1,59 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cámara Inteligente</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <h1>Cámara Inteligente</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cámara Portátil 1</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      #camera-container {
+        position: relative;
+        max-width: 640px;
+        margin: auto;
+        border: 2px solid #020000;
+      }
+      #video,
+      #lastImage {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+      }
+      .green-overlay-video {
+        position: absolute;
+        border: 2px solid green;
+      }
+      #lastImage {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Cámara Portátil</h1>
     
     <div id="camera-container">
-        <video id="video" autoplay playsinline></video>
-        <img id="lastImage" src="" alt="Captura">
-        <div class="green-overlay"></div>
+      <video id="video" autoplay playsinline></video>
+      <img id="lastImage" src="" alt="Imagen capturada" />
+      <div class="green-overlay-video"></div>
     </div>
 
+    <!-- Mensaje de advertencia -->
     <div id="warning-message" class="hidden">
-        ⚠️ Iluminación insuficiente - Active el flash manualmente
-        <button id="close-warning">Entendido</button>
+      ⚠️ No se detectó acceso a Flash o Torch. Por favor, tome imágenes en condiciones de iluminación óptimas.
+      <button id="close-warning">Aceptar</button>
     </div>
     
-    <div class="button-bar">
-        <button id="discard">↺ Descartar</button>
-        <button id="capture">⦿ Capturar</button>
-        <button id="send">↑ Enviar</button>
+    <!-- Botones fijos en la parte inferior -->
+    <div class="button-container">
+      <button id="discard">Descartar</button>
+      <button id="capture">Foto</button>
+      <button id="send">Enviar Imagen</button>
     </div>
     
-    <div id="debug-console">
-        <h3>Registro de actividad</h3>
-        <ul id="log-list"></ul>
+    <div id="debug">
+      <h3>Mensajes de Depuración</h3>
+      <ul id="debugList"></ul>
     </div>
-
+    
     <script src="script.js"></script>
-</body>
+  </body>
 </html>

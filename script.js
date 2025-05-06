@@ -1,139 +1,216 @@
-let cameraStream = null;
-let captureInterface = null;
-let currentCapture = null;
-let isTorchActive = false;
-
-const videoElement = document.getElementById('video');
-const captureElement = document.getElementById('lastImage');
-const overlayElement = document.querySelector('.green-overlay');
-
-// Configuración de cámara
-const cameraSettings = {
-    resolution: {
-        width: { exact: 1920 },
-        height: { exact: 1080 },
-        aspectRatio: { exact: 16/9 }
-    },
-    torchConfig: {
-        activationDelay: 500,
-        deactivationDelay: 300
-    }
-};
-
-async function initializeCamera() {
-    try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: "environment",
-                ...cameraSettings.resolution
-            }
-        });
-        
-        videoElement.srcObject = cameraStream;
-        captureInterface = new ImageCapture(cameraStream.getVideoTracks()[0]);
-        
-        videoElement.addEventListener('loadedmetadata', () => {
-            updateOverlayDimensions();
-            setupTorchHandler();
-        });
-        
-        window.addEventListener('resize', updateOverlayDimensions);
-        
-    } catch (error) {
-        logEvent(`Error de inicialización: ${error.message}`);
-        alert('Error al acceder a la cámara');
-    }
+// Función para agregar mensajes de depuración al cuadro de debug
+function debugLog(message) {
+  console.log(message); // También muestra el mensaje en la consola del navegador
+  const debugList = document.getElementById("debugList");
+  const li = document.createElement("li");
+  li.textContent = message; // Agrega el mensaje como un nuevo elemento de lista
+  debugList.appendChild(li); // Lo añade al cuadro de depuración
 }
 
-function updateOverlayDimensions() {
-    const container = document.getElementById('camera-container');
-    const [width, height] = [container.offsetWidth, container.offsetHeight];
+// Referencias a los elementos del DOM
+const video = document.getElementById("video"); // Elemento de video para mostrar la cámara
+const lastImage = document.getElementById("lastImage"); // Imagen capturada
+const captureButton = document.getElementById("capture"); // Botón para capturar una foto
+const sendButton = document.getElementById("send"); // Botón para enviar la foto
+const discardButton = document.getElementById("discard"); // Botón para descartar la foto
+const container = document.getElementById("camera-container"); // Contenedor de la cámara
+
+// Variables globales
+let stream; // Flujo de video de la cámara
+let imageCapture; // Objeto para capturar imágenes de la cámara
+
+// Función para inicializar la cámara
+function initCamera() {
+  navigator.mediaDevices
+    .getUserMedia({
+      video: {
+        facingMode: "environment", // Usa la cámara trasera si está disponible
+        width: { ideal: 1920 }, // Resolución ideal de ancho
+        aspectRatio: { ideal: 16 / 9 } // Relación de aspecto ideal
+      }
+    })
+    .then(s => {
+      stream = s; // Guarda el flujo de video
+      video.srcObject = stream; // Asigna el flujo al elemento de video
+
+      // Cuando se carguen los metadatos del video
+      video.addEventListener("loadedmetadata", () => {
+        updateOverlay(); // Actualiza el overlay verde
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings(); // Obtiene las configuraciones de la cámara
+        const width = settings.width || video.videoWidth; // Ancho del video
+        const height = settings.height || video.videoHeight; // Alto del video
+        const aspectRatio = (width / height).toFixed(2); // Calcula la relación de aspecto
+        debugLog(`Resolución del video: width = ${width}, height = ${height}, aspectRatio = ${aspectRatio}`);
+      });
+
+      const track = stream.getVideoTracks()[0];
+      imageCapture = new ImageCapture(track); // Crea un objeto para capturar imágenes
+
+      // Muestra las capacidades de la cámara en el cuadro de depuración
+      const capabilities = track.getCapabilities();
+      debugLog("Capacidades de la cámara:\n" + JSON.stringify(capabilities, null, 2));
+    })
+    .catch(error => debugLog("Error cámara: " + error)); // Muestra errores si no se puede acceder a la cámara
+}
+
+// Llama a la función para inicializar la cámara
+initCamera();
+
+// Evento para actualizar el overlay verde cuando se carguen los metadatos del video
+video.addEventListener("loadedmetadata", checkFlashOrTorch);
+
+// Función para actualizar el overlay verde
+function updateOverlay() {
+  const overlay = document.querySelector(".green-overlay-video");
+  overlay.style.display = "block"; // Asegura que el overlay esté visible
+
+  const rect = container.getBoundingClientRect(); // Obtiene las dimensiones del contenedor
+  const width = rect.width;
+  const height = rect.height;
+
+  const smaller = Math.min(width, height); // Usa el tamaño más pequeño entre ancho y alto
+  const size = smaller * 0.85; // Calcula el tamaño del overlay
+
+  overlay.style.width = size + "px";
+  overlay.style.height = size + "px";
+  overlay.style.left = ((width - size) / 2) + "px";
+  overlay.style.top = ((height - size) / 2) + "px";
+}
+
+// Actualiza el overlay si cambia el tamaño de la ventana
+window.addEventListener("resize", updateOverlay);
+
+// Función para restablecer la vista a su estado inicial
+function resetCameraState() {
+  lastImage.src = ""; // Limpia la imagen capturada
+  lastImage.style.display = "none"; // Oculta la imagen
+  video.style.display = "block"; // Muestra el video
+  sendButton.style.display = "none"; // Oculta el botón de enviar
+  discardButton.style.display = "none"; // Oculta el botón de descartar
+  captureButton.style.display = "flex"; // Muestra el botón de capturar
+
+  // Muestra el overlay verde
+  const overlay = document.querySelector(".green-overlay-video");
+  overlay.style.display = "block";
+
+  updateOverlay(); // Actualiza el overlay
+  debugLog("Volviendo a la vista de video");
+}
+
+
+
+let currentBlobUrl = null; // Añadir variable global
+
+// Función de captura mejorada
+captureButton.addEventListener("click", async () => {
+  try {
+    captureButton.disabled = true;
+    debugLog("Iniciando captura...");
+
+    const track = stream.getVideoTracks()[0];
+    if (!imageCapture) imageCapture = new ImageCapture(track);
+
+    // Configuración de foto con valores por defecto seguros
+    const photoSettings = {
+      imageWidth: 1920,
+      imageHeight: 1080,
+      fillLightMode: 'off'
+    };
+
+    // Manejo de iluminación
+    if (track.getCapabilities().fillLightMode?.includes('flash')) {
+      photoSettings.fillLightMode = 'flash';
+    } else if (track.getCapabilities().torch) {
+      await track.applyConstraints({ advanced: [{ torch: true }] });
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    // Captura real
+    const blob = await imageCapture.takePhoto(photoSettings);
     
-    overlayElement.style.width = `${width * 0.9}px`;
-    overlayElement.style.height = `${height * 0.9}px`;
-    overlayElement.style.left = `${width * 0.05}px`;
-    overlayElement.style.top = `${height * 0.05}px`;
-}
-
-async function captureImage() {
-    let captureTrack;
-    try {
-        document.getElementById('capture').disabled = true;
-        captureTrack = cameraStream.getVideoTracks()[0];
-        
-        // Activar torch si está disponible
-        if (captureTrack.getCapabilities().torch) {
-            await captureTrack.applyConstraints({
-                advanced: [{ torch: true }]
-            });
-            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.activationDelay));
-            isTorchActive = true;
-        }
-
-        // Captura con configuración precisa
-        const photo = await captureInterface.takePhoto({
-            imageWidth: cameraSettings.resolution.width.exact,
-            imageHeight: cameraSettings.resolution.height.exact
-        });
-        
-        // Actualizar vista
-        if (currentCapture) URL.revokeObjectURL(currentCapture);
-        currentCapture = URL.createObjectURL(photo);
-        captureElement.src = currentCapture;
-        
-        // Transición suave
-        videoElement.style.opacity = '0';
-        setTimeout(() => {
-            videoElement.style.display = 'none';
-            captureElement.style.display = 'block';
-            videoElement.style.opacity = '1';
-        }, 300);
-        
-    } catch (error) {
-        logEvent(`Error en captura: ${error.message}`);
-    } finally {
-        // Desactivar torch garantizado
-        if (captureTrack?.getCapabilities().torch && isTorchActive) {
-            await new Promise(r => setTimeout(r, cameraSettings.torchConfig.deactivationDelay));
-            await captureTrack.applyConstraints({ advanced: [{ torch: false }] });
-            isTorchActive = false;
-        }
-        document.getElementById('capture').disabled = false;
-    }
-}
-
-function setupTorchHandler() {
-    const track = cameraStream.getVideoTracks()[0];
-    const torchSupported = track.getCapabilities().torch;
+    // Limpiar recursos anteriores
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
     
-    if (!torchSupported) {
-        document.getElementById('warning-message').classList.remove('hidden');
+    // Actualizar UI
+    currentBlobUrl = URL.createObjectURL(blob);
+    lastImage.src = currentBlobUrl;
+    // ... resto de actualizaciones UI ...
+
+  } catch (error) {
+    debugLog("Error en captura: " + error.message);
+  } finally {
+    // Limpiar iluminación
+    if (track.getCapabilities().torch) {
+      await track.applyConstraints({ advanced: [{ torch: false }] );
     }
+    captureButton.disabled = false;
+  }
+});
+
+
+
+
+
+// Función para enviar la imagen capturada al back-end
+function sendPhoto() {
+  if (!lastImage.src || lastImage.src.indexOf("blob:") !== 0) {
+    debugLog("No hay imagen para enviar");
+    alert("No hay imagen para enviar");
+    return;
+  }
+
+  debugLog("Enviando...");
+
+  // Convierte la imagen capturada a base64 y la envía al servidor
+  fetch(lastImage.src)
+    .then(response => response.blob())
+    .then(blob => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        let base64Image = reader.result.split(",")[1];
+        let endpoint = "https://script.google.com/macros/s/AKfycbyp-_LEh2vpD6s48Rly9bmurJGWD0FdjjzXWTqlyiLA2lZl6kLBa3QCb2nvvR4oK_yu/exec";
+        fetch(endpoint, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Image })
+        })
+          .then(() => {
+            debugLog("Imagen enviada correctamente");
+            resetCameraState(); // Restablece la vista después de enviar
+          })
+          .catch(err => debugLog("Error enviando la imagen: " + err.message));
+      };
+      reader.readAsDataURL(blob); // Convierte el blob a base64
+    })
+    .catch(err => debugLog("Error procesando la imagen: " + err));
 }
 
-// Utilidades
-function logEvent(message) {
-    const logEntry = document.createElement('li');
-    logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-    document.getElementById('log-list').appendChild(logEntry);
-    console.log(message);
+// Asigna eventos a los botones de enviar y descartar
+sendButton.addEventListener("click", sendPhoto);
+discardButton.addEventListener("click", () => {
+  debugLog("Imagen descartada");
+  resetCameraState(); // Restablece la vista al descartar
+});
+
+// Función para verificar si la cámara tiene acceso a Flash o Torch
+function checkFlashOrTorch() {
+  const warningMessage = document.getElementById("warning-message");
+  const closeWarningButton = document.getElementById("close-warning");
+  const track = stream.getVideoTracks()[0];
+  const capabilities = track.getCapabilities();
+
+  if (!capabilities.fillLightMode && !capabilities.torch) {
+    warningMessage.classList.remove("hidden"); // Muestra el mensaje de advertencia
+    debugLog("Advertencia: No se detectó acceso a Flash o Torch.");
+  }
+
+  // Evento para cerrar el mensaje de advertencia
+  closeWarningButton.addEventListener("click", () => {
+    warningMessage.classList.add("hidden"); // Oculta el mensaje de advertencia
+    debugLog("Mensaje de advertencia cerrado.");
+  });
 }
 
-// Event handlers
-document.getElementById('capture').addEventListener('click', captureImage);
-document.getElementById('discard').addEventListener('click', () => {
-    captureElement.style.display = 'none';
-    videoElement.style.display = 'block';
-    URL.revokeObjectURL(currentCapture);
-    currentCapture = null;
-});
 
-document.getElementById('close-warning').addEventListener('click', () => {
-    document.getElementById('warning-message').classList.add('hidden');
-});
-
-// Inicialización
-document.addEventListener('DOMContentLoaded', initializeCamera);
-window.addEventListener('beforeunload', () => {
-    cameraStream?.getTracks().forEach(track => track.stop());
-});
