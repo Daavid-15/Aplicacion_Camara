@@ -19,39 +19,6 @@ const cameraConfig = {
     }
 };
 
-// Función de envío recuperada y mejorada
-async function sendPhoto() {
-    if (!currentCapture) {
-        logEvent('Error: No hay imagen para enviar');
-        return;
-    }
-
-    try {
-        const response = await fetch(currentCapture);
-        const blob = await response.blob();
-        
-        const reader = new FileReader();
-        const base64 = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-
-        // Endpoint real (reemplazar)
-        await fetch('TU_ENDPOINT_AQUI', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64 })
-        });
-        
-        logEvent('Imagen enviada exitosamente');
-        resetInterface();
-
-    } catch (error) {
-        logEvent(`Error en envío: ${error.message}`);
-    }
-}
-
 async function initializeCamera() {
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -64,12 +31,18 @@ async function initializeCamera() {
         videoElement.srcObject = cameraStream;
         captureInterface = new ImageCapture(cameraStream.getVideoTracks()[0]);
         
-        videoElement.onloadedmetadata = () => {
+        videoElement.addEventListener('loadedmetadata', () => {
             adjustContainerSize();
+            updateOverlay();
             checkHardwareCapabilities();
-            logEvent('Cámara vertical inicializada');
-        };
-
+            logEvent('Cámara lista - Modo vertical');
+        });
+        
+        window.addEventListener('resize', () => {
+            adjustContainerSize();
+            updateOverlay();
+        });
+        
     } catch (error) {
         logEvent(`Error de cámara: ${error.message}`);
     }
@@ -77,21 +50,17 @@ async function initializeCamera() {
 
 function adjustContainerSize() {
     const container = document.getElementById('camera-container');
-    const videoRatio = cameraConfig.resolution.width.exact / cameraConfig.resolution.height.exact;
-    
-    // Forzar tamaño vertical
-    container.style.width = `${window.innerWidth * 0.9}px`;
-    container.style.height = `${window.innerWidth * 1.777}px`;
-    updateOverlay();
+    const aspectRatio = cameraConfig.resolution.width.exact / cameraConfig.resolution.height.exact;
+    container.style.height = `${container.offsetWidth / aspectRatio}px`;
 }
 
 function updateOverlay() {
     const container = document.getElementById('camera-container');
-    const containerWidth = container.offsetWidth;
-    const overlaySize = containerWidth * 0.85;
+    const minDimension = Math.min(container.offsetWidth, container.offsetHeight);
+    const overlaySize = minDimension * 0.85;
     
     overlayElement.style.width = `${overlaySize}px`;
-    overlayElement.style.height = `${overlaySize * 1.777}px`;
+    overlayElement.style.height = `${overlaySize}px`;
 }
 
 async function captureImage() {
@@ -100,20 +69,17 @@ async function captureImage() {
     try {
         document.getElementById('capture').disabled = true;
         
-        // Activación de linterna
         if (track.getCapabilities().torch) {
             await track.applyConstraints({ advanced: [{ torch: true }] });
             await new Promise(r => setTimeout(r, cameraConfig.torch.warmup));
             isTorchActive = true;
         }
 
-        // Captura vertical
         const photoBlob = await captureInterface.takePhoto({
             imageWidth: 1080,
             imageHeight: 1920
         });
         
-        // Mostrar imagen
         if (currentCapture) URL.revokeObjectURL(currentCapture);
         currentCapture = URL.createObjectURL(photoBlob);
         showPreview();
@@ -121,7 +87,6 @@ async function captureImage() {
     } catch (error) {
         logEvent(`Error de captura: ${error.message}`);
     } finally {
-        // Desactivación garantizada
         if (track.getCapabilities().torch && isTorchActive) {
             await new Promise(r => setTimeout(r, cameraConfig.torch.cooldown));
             await track.applyConstraints({ advanced: [{ torch: false }] });
@@ -136,6 +101,32 @@ function showPreview() {
     videoElement.style.display = 'none';
     captureElement.style.display = 'block';
     document.getElementById('send').style.display = 'inline-block';
+}
+
+async function sendPhoto() {
+    try {
+        const response = await fetch(currentCapture);
+        const blob = await response.blob();
+        
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        await fetch('TU_ENDPOINT_AQUI', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 })
+        });
+        
+        logEvent('Imagen enviada exitosamente');
+        resetInterface();
+
+    } catch (error) {
+        logEvent(`Error en envío: ${error.message}`);
+    }
 }
 
 function resetInterface() {
@@ -156,9 +147,8 @@ document.getElementById('close-warning').addEventListener('click', () => {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', initializeCamera);
-window.addEventListener('resize', () => {
-    adjustContainerSize();
-    updateOverlay();
+window.addEventListener('beforeunload', () => {
+    cameraStream?.getTracks().forEach(track => track.stop());
 });
 
 // Utilidades
@@ -167,4 +157,11 @@ function logEvent(message) {
     logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     document.getElementById('log-list').appendChild(logEntry);
     console.log(message);
+}
+
+function checkHardwareCapabilities() {
+    const track = cameraStream.getVideoTracks()[0];
+    if (!track.getCapabilities().torch) {
+        document.getElementById('warning-message').classList.remove('hidden');
+    }
 }
