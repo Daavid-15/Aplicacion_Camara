@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cámara Portátil 1</title>
+    <title>Cámara Portátil</title>
     <link rel="stylesheet" href="style.css" />
     <style>
       #camera-container {
         position: relative;
         max-width: 640px;
         margin: auto;
-        border: 2px solid #020000;
+        margin-bottom: 120px; /* Espacio para los botones */
       }
       #video,
       #lastImage {
@@ -34,12 +34,6 @@
       <video id="video" autoplay playsinline></video>
       <img id="lastImage" src="" alt="Imagen capturada" />
       <div class="green-overlay-video"></div>
-    </div>
-
-    <!-- Mensaje de advertencia -->
-    <div id="warning-message" class="hidden">
-      ⚠️ No se detectó acceso a Flash o Torch. Por favor, tome imágenes en condiciones de iluminación óptimas.
-      <button id="close-warning">Aceptar</button>
     </div>
     
     <!-- Botones fijos en la parte inferior -->
