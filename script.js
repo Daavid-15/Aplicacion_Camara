@@ -125,11 +125,11 @@ captureButton.addEventListener("click", async () => {
     } else if (track.getCapabilities().torch) {
       debugLog("Activando torch para la foto.");
       await track.applyConstraints({ advanced: [{ torch: true }] });
-      await new Promise(resolve => setTimeout(resolve, 150)); // Pequeño retraso para que el torch se encienda
+      await new Promise(resolve => setTimeout(resolve, 100)); // Pequeño retraso para que el torch se encienda
     }
 
     // Captura la foto
-    const blob = await imageCapture.takePhoto(photoSettings);
+    const blob = imageCapture.takePhoto(photoSettings);
     debugLog("Foto tomada exitosamente.");
 
     // Si se activó torch, se procede a apagarla
