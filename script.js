@@ -98,7 +98,6 @@ function resetCameraState() {
   debugLog("Volviendo a la vista de video");
 }
 
-// Evento para capturar una foto con flash (torch) si es posible
 captureButton.addEventListener("click", async () => {
   debugLog("Capturando imagen ...");
 
@@ -113,41 +112,57 @@ captureButton.addEventListener("click", async () => {
     let blob;
 
     if (capabilities.fillLightMode && capabilities.fillLightMode.includes("flash")) {
-      // Si soporta flash mediante fillLightMode, úsalo
+      // Usa flash mediante fillLightMode
       photoSettings.fillLightMode = "flash";
       blob = await imageCapture.takePhoto(photoSettings);
-    }
-    else if (capabilities.torch) {
-      // Si el dispositivo soporta torch, actívalo
-      await track.applyConstraints({ advanced: [{ torch: true }] });
-      // Espera un breve instante para asegurar que el torch se encienda
-      await new Promise(resolve => setTimeout(resolve, 100));
+    } else if (capabilities.torch) {
+      // Usa torch y asegúrate de desactivarlo
+      try {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        blob = await imageCapture.takePhoto(photoSettings);
+      } finally {
+        await track.applyConstraints({ advanced: [{ torch: false }] });
+      }
+    } else {
+      // Captura normal
       blob = await imageCapture.takePhoto(photoSettings);
-      // Apaga el torch después de tomar la foto
-      await track.applyConstraints({ advanced: [{ torch: false }] });
-    } 
-    else {
-      // En caso de que no se disponga de flash o torch, toma la foto normalmente
-      blob = await imageCapture.takePhoto(photoSettings);
     }
     
-    // Muestra la imagen capturada y ajusta la vista
-    lastImage.src = URL.createObjectURL(blob);
-    video.style.display = "none";
-    lastImage.style.display = "block";
-    sendButton.style.display = "block";
-    discardButton.style.display = "block";
-    captureButton.style.display = "none";
+    // Redimensiona la imagen usando canvas para igualar el tamaño del video
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      // Forzamos el canvas a las mismas dimensiones del video
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      // Dibujamos la imagen en el canvas escalada a las dimensiones indicadas
+      ctx.drawImage(img, 0, 0, width, height);
+      // Asigna el resultado convertido a Data URL al elemento <img>
+      lastImage.src = canvas.toDataURL();
+      
+      // Actualiza la vista
+      video.style.display = "none";
+      lastImage.style.display = "block";
+      sendButton.style.display = "block";
+      discardButton.style.display = "block";
+      captureButton.style.display = "none";
+      
+      // Oculta el overlay verde
+      const overlay = document.querySelector(".green-overlay-video");
+      overlay.style.display = "none";
+      
+      debugLog("Foto capturada (redimensionada) y flash/torch desactivado.");
+    };
+    img.src = URL.createObjectURL(blob);
     
-    // Oculta el overlay verde
-    const overlay = document.querySelector(".green-overlay-video");
-    overlay.style.display = "none";
-    
-    debugLog("Foto capturada y flash/torch desactivado.");
   } catch (error) {
     debugLog("Error en captura: " + error);
   }
 });
+
+
 
 
 // Función para enviar la imagen capturada al back-end
