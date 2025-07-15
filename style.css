@@ -86,3 +86,25 @@ body {
   overflow-wrap: break-word; /* Compatibilidad adicional */
   white-space: pre-wrap; /* Mantener espacios y saltos de línea */
 }
+
+/* Estilos para el textarea y el botón de enviar texto */
+#text-input {
+  width: 80%;
+  max-width: 600px;
+  height: 100px;
+  margin: 20px auto;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  display: block;
+}
+
+#send-text {
+  background-color: #FFA500; /* Naranja */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+}

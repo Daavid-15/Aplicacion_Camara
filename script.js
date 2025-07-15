@@ -12,6 +12,8 @@ const captureButton = document.getElementById("capture");
 const sendButton = document.getElementById("send");
 const discardButton = document.getElementById("discard");
 const container = document.getElementById("camera-container");
+const textInput = document.getElementById("text-input");
+const sendTextButton = document.getElementById("send-text");
 
 let stream;
 let imageCapture;
@@ -184,7 +186,7 @@ function sendPhoto() {
       const reader = new FileReader();
       reader.onloadend = () => {
         let base64Image = reader.result.split(",")[1];
-        let endpoint = "https://script.google.com/macros/s/AKfycbyp-_LEh2vpD6s48Rly9bmurJGWD0FdjjzXWTqlyiLA2lZl6kLBa3QCb2nvvR4oK_yu/exec";
+        let endpoint = "https://script.google.com/macros/s/AKfycbz9YGEzg9ZJWNjX0_1LHTrctHz4Qigj4vlyzBBEtluezUU9QRLsQjkx2OdV4AKgio0r/exec";
         fetch(endpoint, {
           method: "POST",
           mode: "no-cors",
@@ -207,4 +209,45 @@ sendButton.addEventListener("click", sendPhoto);
 discardButton.addEventListener("click", () => {
   debugLog("Imagen descartada");
   resetCameraState();
+});
+
+// Función para enviar el texto al backend
+function sendText() {
+  const text = textInput.value;
+  if (!text) {
+    debugLog("El campo de texto está vacío");
+    alert("Por favor, escribe algo antes de enviar.");
+    return;
+  }
+
+  debugLog("Enviando texto...");
+
+  let endpoint = "https://script.google.com/macros/s/AKfycbz9YGEzg9ZJWNjX0_1LHTrctHz4Qigj4vlyzBBEtluezUU9QRLsQjkx2OdV4AKgio0r/exec"; // Asegúrate de que esta URL es correcta
+  fetch(endpoint, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: text })
+  })
+    .then(() => {
+      debugLog("Texto enviado correctamente");
+      // textInput.value = ""; // Limpiar el textarea después del envío - Comentado para mantener el texto
+    })
+    .catch(err => debugLog("Error enviando el texto: " + err.message));
+}
+
+// Asignar evento al botón de enviar texto
+sendTextButton.addEventListener("click", sendText);
+
+// Establecer el texto por defecto al cargar la página
+window.addEventListener('load', () => {
+  textInput.value = `//tensor_superpoint_1024_BAJO_CARBONO_0.pt
+//tensor_superpoint_1024_CABLES_Y_MUELLES_0.pt
+///tensor_superpoint_1024_ESTAMPACION_0.pt
+tensor_superpoint_1024_NAN_0.pt
+tensor_superpoint_1024_NEUMATICOS_0.pt
+tensor_superpoint_1024_NO_ENCONTRADO_0.pt
+//tensor_superpoint_1024_OTROS_0.pt
+//tensor_superpoint_1024_PRETENSADOS_0.pt
+//tensor_superpoint_1024_PSEUDO_0.pt`;
 });
