@@ -97,15 +97,14 @@ captureButton.addEventListener("click", async () => {
     };
 
     // Intentar flash nativo si existe
-    //if (caps.fillLightMode?.includes("flash")) {  //Descartado, en mi movil salta el flash descordinado con la imagen
-      //settings.fillLightMode = "flash";
-      //debugLog("Usando flash integrado");
-    //}
+    if (caps.fillLightMode?.includes("flash")) {
+      settings.fillLightMode = "flash";
+      debugLog("Usando flash integrado");
+    }
     // O activar torch manual
-    if (caps.torch) {
+    else if (caps.torch) {
       await track.applyConstraints({ advanced: [{ torch: true }] });
       debugLog("Linterna activada");
-      await new Promise(r => setTimeout(r, 250)); //Tiempo para estabilizar el led
     }
 
     // Capturar la foto
@@ -115,7 +114,6 @@ captureButton.addEventListener("click", async () => {
 
     // Apagar torch si se encendió
     if (caps.torch) {
-      await new Promise(r => setTimeout(r, 250)); //Tiempo para estabilizar el led
       await track.applyConstraints({ advanced: [{ torch: false }] });
       debugLog("Linterna desactivada");
     }
