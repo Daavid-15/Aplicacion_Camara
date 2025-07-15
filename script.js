@@ -1,4 +1,8 @@
-// Función para mostrar mensajes de depuración en consola y en la lista HTML
+// Variables globales
+let stream;
+let imageCapture;
+
+// Función para mostrar mensajes de depuración
 function debugLog(message) {
   console.log(message);
   const debugList = document.getElementById("debugList");
@@ -7,7 +11,7 @@ function debugLog(message) {
   debugList.appendChild(li);
 }
 
-
+// Elementos del DOM
 const video = document.getElementById("video");
 const lastImage = document.getElementById("lastImage");
 const captureButton = document.getElementById("capture");
@@ -17,41 +21,44 @@ const container = document.getElementById("camera-container");
 const textInput = document.getElementById("text-input");
 const sendTextButton = document.getElementById("send-text");
 
-let stream;
-let imageCapture;
-
-// Inicializa la cámara y muestra sus capacidades
+// Inicializa la cámara al máximo de resolución posible
 async function initCamera() {
   try {
+    // 1) Pedir únicamente facingMode; la resolución vendrá de los capabilities
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        aspectRatio: { ideal: 16 / 9 }
-      }
+      video: { facingMode: "environment" }
     });
     video.srcObject = stream;
 
+    // 2) Acceder a la pista de vídeo
+    const track = stream.getVideoTracks()[0];
+
+    // 3) Leer capacidades de resolución y forzar el máximo
+    const videoCaps = track.getCapabilities();
+    const maxW = videoCaps.width.max;
+    const maxH = videoCaps.height.max;
+    await track.applyConstraints({ width: maxW, height: maxH });
+
+    // 4) Cuando cargue metadata, mostrar la resolución aplicada
     video.addEventListener("loadedmetadata", () => {
       updateOverlay();
-      const track = stream.getVideoTracks()[0];
       const settings = track.getSettings();
-      const width = settings.width || video.videoWidth;
-      const height = settings.height || video.videoHeight;
-      debugLog(`Resolución de video: ${width}×${height}`);
+      debugLog(`Resolución de vídeo usada: ${settings.width}×${settings.height}`);
     });
 
-    const track = stream.getVideoTracks()[0];
+    // 5) Crear el capturador de fotos
     imageCapture = new ImageCapture(track);
 
-    const caps = track.getCapabilities();
-    debugLog("Capacidades de la cámara:\n" + JSON.stringify(caps, null, 2));
+    // 6) Mostrar PhotoCapabilities (útil para saber el máximo de imagen fija)
+    const photoCaps = await imageCapture.getPhotoCapabilities();
+    debugLog("Capacidades de foto:\n" + JSON.stringify(photoCaps, null, 2));
+
   } catch (err) {
-    debugLog("Error cámara: " + err);
+    debugLog("Error al inicializar cámara: " + err);
   }
 }
 
-// Centra y dimensiona el overlay
+// Redibuja el overlay verde centrado
 function updateOverlay() {
   const rect = container.getBoundingClientRect();
   const size = Math.min(rect.width, rect.height) * 0.85;
@@ -72,37 +79,46 @@ function resetCameraState() {
   discardButton.style.display = "none";
   captureButton.style.display = "flex";
   updateOverlay();
-  debugLog("Vista de video restaurada");
+  debugLog("Vista de vídeo restaurada");
 }
 
-// Captura la foto con dimensiones seguras según capacidades
+// Captura la foto usando la máxima resolución de PhotoCapabilities
 captureButton.addEventListener("click", async () => {
-  debugLog("Capturando imagen...");
+  debugLog("Iniciando captura de imagen...");
   const track = stream.getVideoTracks()[0];
 
   try {
     const caps = await imageCapture.getPhotoCapabilities();
-    const desiredWidth = Math.min(caps.imageWidth.max || video.videoWidth, 1920);
-    const desiredHeight = Math.min(caps.imageHeight.max || video.videoHeight, 1080);
-    const settings = { imageWidth: desiredWidth, imageHeight: desiredHeight };
 
+    // Ajustar al máximo disponible
+    const settings = {
+      imageWidth: caps.imageWidth.max,
+      imageHeight: caps.imageHeight.max
+    };
+
+    // Intentar flash nativo si existe
     if (caps.fillLightMode?.includes("flash")) {
       settings.fillLightMode = "flash";
       debugLog("Usando flash integrado");
-    } else if (caps.torch) {
+    }
+    // O activar torch manual
+    else if (caps.torch) {
       await track.applyConstraints({ advanced: [{ torch: true }] });
       debugLog("Linterna activada");
     }
 
+    // Capturar la foto
     const blob = await imageCapture.takePhoto(settings);
     lastImage.src = URL.createObjectURL(blob);
-    debugLog("Foto capturada");
+    debugLog(`Foto capturada a ${settings.imageWidth}×${settings.imageHeight}`);
 
+    // Apagar torch si se encendió
     if (caps.torch) {
       await track.applyConstraints({ advanced: [{ torch: false }] });
       debugLog("Linterna desactivada");
     }
 
+    // Mostrar la imagen y los botones
     video.style.display = "none";
     lastImage.style.display = "block";
     sendButton.style.display = "block";
@@ -111,22 +127,24 @@ captureButton.addEventListener("click", async () => {
     updateOverlay();
 
   } catch (err) {
-    debugLog("Error en captura: " + err);
-    await track.applyConstraints({ advanced: [{ torch: false }] }).catch(e => debugLog("Error apagando linterna: " + e));
+    debugLog("Error durante captura: " + err);
+    // Asegurar linterna apagada
+    try {
+      await track.applyConstraints({ advanced: [{ torch: false }] });
+    } catch {}
   }
 });
 
-// Envía la imagen al backend
+// Envío de foto al backend
 function sendPhoto() {
   if (!lastImage.src.startsWith("blob:")) {
     debugLog("No hay imagen para enviar");
     alert("No hay imagen para enviar");
     return;
   }
-
   debugLog("Enviando imagen...");
   fetch(lastImage.src)
-    .then(r => r.blob())
+    .then(res => res.blob())
     .then(blob => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -153,7 +171,7 @@ discardButton.addEventListener("click", () => {
   resetCameraState();
 });
 
-// Envía texto al backend
+// Envío de texto al backend
 function sendText() {
   const text = textInput.value.trim();
   if (!text) {
@@ -173,7 +191,7 @@ function sendText() {
 
 sendTextButton.addEventListener("click", sendText);
 
-// Al cargar la página, listamos dispositivos y arrancamos la cámara
+// Al cargar la página, arrancamos la cámara y precargamos texto
 window.addEventListener("load", () => {
   initCamera();
   textInput.value = `//tensor_superpoint_1024_BAJO_CARBONO_0.pt
