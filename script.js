@@ -1,7 +1,3 @@
-let videoWidth, videoHeight;  // Dimensiones de la cámara
-
-
-
 // Función para mostrar mensajes de depuración en consola y en la lista HTML
 function debugLog(message) {
   console.log(message);
@@ -10,28 +6,6 @@ function debugLog(message) {
   li.textContent = message;
   debugList.appendChild(li);
 }
-
-async function listAllDeviceInfo() {
-  try {
-    // 1) Pide permiso para que labels y IDs estén disponibles
-    await navigator.mediaDevices.getUserMedia({ video: true });
-
-    // 2) Enumerar dispositivos
-    const devices = await navigator.mediaDevices.enumerateDevices();
-
-    // 3) Mostrar todo el array en tu lista de debug
-    debugLog("Devices completos:\n" + JSON.stringify(devices, null, 2));
-
-    // 4) (Opcional) Listar uno a uno en la lista de debug
-    devices.forEach((dev, idx) => {
-      debugLog(`Dispositivo #${idx}: kind=${dev.kind}; label=${dev.label}; id=${dev.deviceId}`);
-    });
-
-  } catch (err) {
-    debugLog("No se pudo listar dispositivos: " + err);
-  }
-}
-
 
 
 const video = document.getElementById("video");
@@ -59,12 +33,12 @@ async function initCamera() {
     video.srcObject = stream;
 
     video.addEventListener("loadedmetadata", () => {
-      updateOverlay();  
-      const track = stream.getVideoTracks()[0];  
-      const settings = track.getSettings();  
-      videoWidth = settings.width || video.videoWidth;  
-      videoHeight = settings.height || video.videoHeight;  
-      debugLog(`Resolución de video: ${videoWidth}×${videoHeight}`);
+      updateOverlay();
+      const track = stream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      const width = settings.width || video.videoWidth;
+      const height = settings.height || video.videoHeight;
+      debugLog(`Resolución de video: ${width}×${height}`);
     });
 
     const track = stream.getVideoTracks()[0];
@@ -107,9 +81,9 @@ captureButton.addEventListener("click", async () => {
   const track = stream.getVideoTracks()[0];
 
   try {
-    const caps = await imageCapture.getPhotoCapabilities();  
-    const desiredWidth = videoWidth;  
-    const desiredHeight = videoHeight;  
+    const caps = await imageCapture.getPhotoCapabilities();
+    const desiredWidth = Math.min(caps.imageWidth.max || video.videoWidth, 1920);
+    const desiredHeight = Math.min(caps.imageHeight.max || video.videoHeight, 1080);
     const settings = { imageWidth: desiredWidth, imageHeight: desiredHeight };
 
     if (caps.fillLightMode?.includes("flash")) {
@@ -201,7 +175,6 @@ sendTextButton.addEventListener("click", sendText);
 
 // Al cargar la página, listamos dispositivos y arrancamos la cámara
 window.addEventListener("load", () => {
-  listAllDeviceInfo();
   initCamera();
   textInput.value = `//tensor_superpoint_1024_BAJO_CARBONO_0.pt
 //tensor_superpoint_1024_CABLES_Y_MUELLES_0.pt
