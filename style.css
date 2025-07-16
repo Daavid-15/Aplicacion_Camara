@@ -89,9 +89,9 @@ body {
 
 /* Estilos para el textarea y el botón de enviar texto */
 #text-input {
-  width: 80%;
+  width: 90%;
   max-width: 600px;
-  height: 100px;
+  height: 300px;
   margin: 20px auto;
   padding: 10px;
   border: 1px solid #ccc;

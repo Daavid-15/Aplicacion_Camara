@@ -69,7 +69,19 @@ function updateOverlay() {
   overlay.style.top = (rect.height - size) / 2 + "px";
 }
 
-window.addEventListener("resize", updateOverlay);
+// Función para ajustar el padding inferior del body
+function adjustBottomPadding() {
+  // Seleccionamos el contenedor de botones que se superpone por su clase
+  const overlappingBar = document.querySelector(".button-container"); 
+  if (overlappingBar) {
+    // Medimos su altura y la aplicamos como padding al body
+    const barHeight = overlappingBar.offsetHeight;
+    document.body.style.paddingBottom = `${barHeight}px`;
+  }
+}
+
+// Al cambiar el tamaño de la ventana, actualizamos el overlay y el padding
+window.addEventListener("resize", () => { updateOverlay(); adjustBottomPadding(); });
 
 function resetCameraState() {
   lastImage.src = "";
@@ -194,6 +206,7 @@ sendTextButton.addEventListener("click", sendText);
 // Al cargar la página, arrancamos la cámara y precargamos texto
 window.addEventListener("load", () => {
   initCamera();
+  adjustBottomPadding(); // Ajusta el padding inicial al cargar la página
   textInput.value = `//tensor_superpoint_1024_BAJO_CARBONO_0.pt
 //tensor_superpoint_1024_CABLES_Y_MUELLES_0.pt
 ///tensor_superpoint_1024_ESTAMPACION_0.pt
