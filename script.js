@@ -207,13 +207,16 @@ sendTextButton.addEventListener("click", sendText);
 window.addEventListener("load", () => {
   initCamera();
   adjustBottomPadding(); // Ajusta el padding inicial al cargar la página
-  textInput.value = `//tensor_superpoint_1024_BAJO_CARBONO_0.pt
-//tensor_superpoint_1024_CABLES_Y_MUELLES_0.pt
-///tensor_superpoint_1024_ESTAMPACION_0.pt
-tensor_superpoint_1024_NAN_0.pt
-tensor_superpoint_1024_NEUMATICOS_0.pt
-tensor_superpoint_1024_NO_ENCONTRADO_0.pt
+  textInput.value = `//tensor_superpoint_1024_BAJO CARBONO_0.pt
+//tensor_superpoint_1024_CABLES Y MUELLES_0.pt
+tensor_superpoint_1024_ELECTRODOS_0.pt
+///tensor_superpoint_1024_Estampacion_0.pt
+tensor_superpoint_1024_Free_Cutting_Resulfuradas_0.pt
+tensor_superpoint_1024_Muelles_0.pt
+tensor_superpoint_1024_nan_0.pt
+tensor_superpoint_1024_Neumaticos_0.pt
+tensor_superpoint_1024_No_Encontrado_0.pt
 //tensor_superpoint_1024_OTROS_0.pt
 //tensor_superpoint_1024_PRETENSADOS_0.pt
-//tensor_superpoint_1024_PSEUDO_0.pt`;
+//tensor_superpoint_1024_Pseudo_0.pt`;
 });
